@@ -1,0 +1,30 @@
+#------------------------------------------------------------------------------#
+# Copyright (c) 2021, Tiad National Security, LLC
+# All rights reserved
+#------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------#
+# FleCSI options.
+#------------------------------------------------------------------------------#
+@FLECSI_SP_CONFIG_CODE@
+
+#------------------------------------------------------------------------------#
+# Set the path to the FleCSI headers.
+#------------------------------------------------------------------------------#
+
+set(FleCSI_SP_INCLUDE_DIRS @FLECSI_SP_INCLUDE_DIRS@)
+
+#------------------------------------------------------------------------------#
+# FleCSI-SP library dependencies (contains definitions for IMPORTED targets)
+#------------------------------------------------------------------------------#
+
+if(NOT TARGET FleCSI-SP AND NOT FleCSI_SP_BINARY_DIR)
+  include(@FLECSI_SP_CMAKE_DIR@/FleCSI-SPTargets.cmake)
+endif()
+
+#------------------------------------------------------------------------------#
+# Set the FleCSI libraries.
+#------------------------------------------------------------------------------#
+
+set(FleCSI_SP_LIBRARIES FleCSI-SP)
+set(FleCSI_SP_LIBRARY_DEPENDENCIES @FLECSI_SP_LIBRARY_DEPENDENCIES@)

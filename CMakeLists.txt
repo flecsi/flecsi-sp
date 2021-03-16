@@ -39,9 +39,66 @@ include(version)
 set(FleCSI_SP_VERSION ${${PROJECT_NAME}_VERSION})
 
 #------------------------------------------------------------------------------#
-# FleCSI-SP library.
+# Add summary macros.
 #------------------------------------------------------------------------------#
 
-include(library)
+include(summary)
 
-add_library(FleCSI-SP flecsi-sp EXPORT_TARGET FleCSI-SPTargets)
+#------------------------------------------------------------------------------#
+# Add format target.
+#------------------------------------------------------------------------------#
+
+include(format)
+
+if(NOT FORMAT_ONLY)
+
+  #----------------------------------------------------------------------------#
+  # FleCSI-SP library.
+  #----------------------------------------------------------------------------#
+
+  include(library)
+
+  add_library_target(FleCSI-SP flecsi-sp EXPORT_TARGET FleCSI-SPTargets)
+
+  #----------------------------------------------------------------------------#
+  #----------------------------------------------------------------------------#
+
+  set(FLECSI_SP_CMAKE_DIR ${CMAKE_INSTALL_PREFIX}/${LIBDIR}/cmake/FleCSI-SP)
+
+  #----------------------------------------------------------------------------#
+  # Export targets and package.
+  #----------------------------------------------------------------------------#
+
+  export(
+    TARGETS FleCSI-SP
+    FILE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPTargets.cmake
+  )
+
+  export(PACKAGE FleCSI-SP)
+
+  #----------------------------------------------------------------------------#
+  # CMake config file: This should be the last thing to happen.
+  #----------------------------------------------------------------------------#
+
+  configure_file(${PROJECT_SOURCE_DIR}/config/FleCSI-SPConfig.cmake.in
+    ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPConfig.cmake @ONLY)
+
+  install(
+    FILES ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPConfig.cmake
+    DESTINATION ${FLECSI_SP_CMAKE_DIR}
+  )
+
+  install(
+    EXPORT FleCSI-SPTargets
+    DESTINATION ${FLECSI_SP_CMAKE_DIR}
+    COMPONENT dev
+  )
+
+else()
+
+  summary_header()
+  summary_option("FORMAT_ONLY" ${FORMAT_ONLY} "")
+
+  message(STATUS ${_summary})
+
+endif()
