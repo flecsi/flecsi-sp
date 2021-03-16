@@ -6,8 +6,10 @@
 set(burton_HEADERS
   dummy.hh
   mesh.hh
+  PARENT_SCOPE
 )
 
 set(burton_SOURCES
   dummy.cc
+  PARENT_SCOPE
 )

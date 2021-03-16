@@ -1,3 +1,3 @@
-#include <burton/dummy.hh>
+#include <flecsi-sp/burton/dummy.hh>
 
-int doit() {}
+int doit() { return 0; }
