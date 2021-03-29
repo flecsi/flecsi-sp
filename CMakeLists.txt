@@ -3,13 +3,7 @@
 # All rights reserved
 #------------------------------------------------------------------------------#
 
-cmake_minimum_required(VERSION 3.12)
-
-#------------------------------------------------------------------------------#
-# Add local module path.
-#------------------------------------------------------------------------------#
-
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+cmake_minimum_required(VERSION 3.12...3.19)
 
 #------------------------------------------------------------------------------#
 # Project.
@@ -29,6 +23,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message(FATAL_ERROR "Version 9.0 of gnu compilers required!")
   endif()
 endif()
+
+#------------------------------------------------------------------------------#
+# Add flecsi module path.
+#------------------------------------------------------------------------------#
+
+find_package(FleCSICMake REQUIRED)
+list(APPEND CMAKE_MODULE_PATH ${FleCSICMake_PREFIX})
 
 #------------------------------------------------------------------------------#
 # Version.
@@ -53,45 +54,37 @@ include(format)
 if(NOT FORMAT_ONLY)
 
   #----------------------------------------------------------------------------#
+  # Find FleCSI installationn.
+  #----------------------------------------------------------------------------#
+
+  find_package(FleCSI REQUIRED)
+
+  #----------------------------------------------------------------------------#
+  # Unit tests and logging.
+  #----------------------------------------------------------------------------#
+
+  set(ENABLE_FLOG ${FleCSI_ENABLE_FLOG})
+  set(FLECSI_RUNTIME_MODEL ${FleCSI_RUNTIME_MODEL})
+
+  include(flog)
+  set(FLECSI_UNIT_MAIN ${FleCSICMake_PREFIX}/unit-main.cc)
+  include(unit)
+
+  #----------------------------------------------------------------------------#
   # FleCSI-SP library.
   #----------------------------------------------------------------------------#
 
   include(library)
 
-  add_library_target(FleCSI-SP flecsi-sp EXPORT_TARGET FleCSI-SPTargets)
-
-  #----------------------------------------------------------------------------#
-  #----------------------------------------------------------------------------#
-
-  set(FLECSI_SP_CMAKE_DIR ${CMAKE_INSTALL_PREFIX}/${LIBDIR}/cmake/FleCSI-SP)
-
-  #----------------------------------------------------------------------------#
-  # Export targets and package.
-  #----------------------------------------------------------------------------#
-
-  export(
-    TARGETS FleCSI-SP
-    FILE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPTargets.cmake
-  )
-
-  export(PACKAGE FleCSI-SP)
-
-  #----------------------------------------------------------------------------#
-  # CMake config file: This should be the last thing to happen.
-  #----------------------------------------------------------------------------#
-
-  configure_file(${PROJECT_SOURCE_DIR}/config/FleCSI-SPConfig.cmake.in
-    ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPConfig.cmake @ONLY)
-
-  install(
-    FILES ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPConfig.cmake
-    DESTINATION ${FLECSI_SP_CMAKE_DIR}
-  )
-
-  install(
-    EXPORT FleCSI-SPTargets
-    DESTINATION ${FLECSI_SP_CMAKE_DIR}
-    COMPONENT dev
+  add_library_target(FleCSI-SP flecsi-sp
+    EXPORT_TARGET
+      FleCSI-SPTargets
+    VERSION
+      ${FleCSI_SP_VERSION}
+    NAMESPACE
+      FleCSI-SP
+    LINK_PUBLIC
+      FleCSI::FleCSI
   )
 
 else()
