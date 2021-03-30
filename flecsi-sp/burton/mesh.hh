@@ -14,28 +14,18 @@ struct config;
 
 template<>
 struct config<1> {
-  enum index_space {
-    vertices,
-    edges = vertices,
-    faces = edges,
-    cells
-  };
+  enum index_space { vertices, edges = vertices, faces = edges, cells };
 };
 
 template<std::size_t Dimension>
-struct burton :
-  flecsi::topo::specialization<flecsi::topo::unstructured, burton> {
+struct burton
+  : flecsi::topo::specialization<flecsi::topo::unstructured, burton> {
 
   /*--------------------------------------------------------------------------*
     Policy Information.
    *--------------------------------------------------------------------------*/
 
-  enum index_space {
-    vertices,
-    edges,
-    faces,
-    cells
-  };
+  enum index_space { vertices, edges, faces, cells };
 
   using index_spaces = has<cells, vertices>;
 
@@ -60,9 +50,7 @@ struct burton :
     Initialization.
    *--------------------------------------------------------------------------*/
 
-  static void initialize(data::topology_slot<burton> &) {
-  } // initialize
-
+  static void initialize(data::topology_slot<burton> &) {} // initialize
 };
 
 } // namespace fsp
