@@ -1,2 +1,15 @@
-build
+build*
 *.swp
+*.pyc
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+compile_commands.json
+*~
+.DS_Store
+.vscode
+*_build
+*.Linux
+*.tex
+*.log
+*.aux

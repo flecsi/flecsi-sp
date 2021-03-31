@@ -129,7 +129,7 @@ if(NOT FORMAT_ONLY)
   string(APPEND _summary "\n")
   summary_info("FleCSI_SP_VERSION" "${FleCSI_SP_VERSION}" TRUE)
   summary_info("FleCSI_SP_DOCUMENTATION_VERSION"
-    "${FleCSI_SP_DOCUMENTATION_VERSION}" FALSE)
+    "${FleCSI-SP_DOCUMENTATION_VERSION}" FALSE)
   if(${PROJECT_NAME}_COMMITS)
     summary_info("Repository state" "${${PROJECT_NAME}_COMMITS}" FALSE)
   endif()
