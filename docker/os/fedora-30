@@ -1,0 +1,95 @@
+#-----------------------------------------------------------------------------#
+# FleCSI CI Configuration for Fedora 31
+#------------------------------------------------------------------------------#
+
+FROM fedora:30
+
+#------------------------------------------------------------------------------#
+# Image arguments.
+#------------------------------------------------------------------------------#
+
+ARG IMAGE_REPO
+ARG IMAGE_BRANCH
+ARG SPACK_REPO
+ARG SPACK_BRANCH
+
+#------------------------------------------------------------------------------#
+# Install basic linux requirements
+#------------------------------------------------------------------------------#
+
+RUN dnf update -y && dnf install -y \
+  ccache \
+  clang \
+  cmake \
+  curl \
+  doxygen \
+  emacs-color-theme \
+  file \
+  findutils \
+  flex \
+  gcc \
+  gcc-c++ \
+  gcc-gfortran \
+  git \
+  graphviz-devel \
+  lbzip2 \
+  make \
+  passwd \
+  patch \
+  python3 \
+  python3-pip \
+  rsync \
+  vim-enhanced \
+  wget \
+  which \
+  unzip \
+  xz
+
+#------------------------------------------------------------------------------#
+# Add flecsi user
+#------------------------------------------------------------------------------#
+
+RUN groupadd -r flecsi
+RUN useradd -r -m -g flecsi flecsi
+RUN echo "flecsi ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/flecsi
+
+USER flecsi
+WORKDIR /home/flecsi
+
+ADD --chown=flecsi:flecsi bashrc ./.bashrc
+ADD --chown=flecsi:flecsi dircolors ./.dircolors
+ADD --chown=flecsi:flecsi vimrc ./.vimrc
+
+#------------------------------------------------------------------------------#
+# Capture version information
+#------------------------------------------------------------------------------#
+
+RUN gcc -v 2>&1 | grep "gcc version" | awk '{ print $3 }' > .gnu_version
+
+#------------------------------------------------------------------------------#
+# Install pip packages
+#------------------------------------------------------------------------------#
+
+RUN pip3 install --user pyyaml
+RUN pip3 install --user Sphinx
+RUN pip3 install --user recommonmark
+RUN pip3 install --user sphinx_rtd_theme
+
+#------------------------------------------------------------------------------#
+# Clone spack and create copy for the upstream install.
+#------------------------------------------------------------------------------#
+
+ARG EMPH="\e[38;5;36m"
+ARG NEMPH="\e[0m"
+
+RUN echo -e "${EMPH}Cloning spack: ${SPACK_BRANCH} from ${SPACK_REPO}${NEMPH}"
+RUN git clone --single-branch --branch ${SPACK_BRANCH} ${SPACK_REPO} .spack
+RUN cp -r .spack .spack-upstream
+
+#------------------------------------------------------------------------------#
+# Set default shell for interactive
+#------------------------------------------------------------------------------#
+
+CMD /bin/bash
+
+# vim: syntax=dockerfile
