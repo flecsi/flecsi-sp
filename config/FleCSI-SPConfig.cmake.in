@@ -19,7 +19,7 @@ set(FleCSI_SP_INCLUDE_DIRS @FLECSI_SP_INCLUDE_DIRS@)
 #------------------------------------------------------------------------------#
 
 if(NOT TARGET FleCSI-SP AND NOT FleCSI_SP_BINARY_DIR)
-  include(@FLECSI_SP_CMAKE_DIR@/FleCSI-SPTargets.cmake)
+  include(@CMAKE_INSTALL_PREFIX@/@LIBDIR@/cmake/FleCSI-SP/FleCSI-SPTargets.cmake)
 endif()
 
 #------------------------------------------------------------------------------#

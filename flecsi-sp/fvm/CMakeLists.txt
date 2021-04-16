@@ -3,13 +3,22 @@
 # All rights reserved
 #------------------------------------------------------------------------------#
 
-set(burton_HEADERS
+set(fvm_HEADERS
   dummy.hh
   mesh.hh
   PARENT_SCOPE
 )
 
-set(burton_SOURCES
+set(fvm_SOURCES
   dummy.cc
   PARENT_SCOPE
+)
+
+#------------------------------------------------------------------------------#
+# Unit tests.
+#------------------------------------------------------------------------------#
+
+add_unit(sanity
+  SOURCES
+    test/sanity.cc
 )

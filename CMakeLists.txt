@@ -3,13 +3,7 @@
 # All rights reserved
 #------------------------------------------------------------------------------#
 
-cmake_minimum_required(VERSION 3.12)
-
-#------------------------------------------------------------------------------#
-# Add local module path.
-#------------------------------------------------------------------------------#
-
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+cmake_minimum_required(VERSION 3.12...3.19)
 
 #------------------------------------------------------------------------------#
 # Project.
@@ -29,6 +23,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     message(FATAL_ERROR "Version 9.0 of gnu compilers required!")
   endif()
 endif()
+
+#------------------------------------------------------------------------------#
+# Add flecsi module path.
+#------------------------------------------------------------------------------#
+
+find_package(FleCSICMake REQUIRED)
+list(APPEND CMAKE_MODULE_PATH ${FleCSICMake_PREFIX})
 
 #------------------------------------------------------------------------------#
 # Version.
@@ -52,32 +53,54 @@ include(format)
 
 if(NOT FORMAT_ONLY)
 
+  include(documentation)
+
+  #----------------------------------------------------------------------------#
+  # Find FleCSI installationn.
+  #----------------------------------------------------------------------------#
+
+  find_package(FleCSI REQUIRED)
+
+  #----------------------------------------------------------------------------#
+  # Unit tests and logging.
+  #----------------------------------------------------------------------------#
+
+  set(ENABLE_FLOG ${FleCSI_ENABLE_FLOG})
+  set(FLECSI_RUNTIME_MODEL ${FleCSI_RUNTIME_MODEL})
+
+  include(flog)
+  set(FLECSI_UNIT_MAIN ${FleCSICMake_PREFIX}/unit-main.cc)
+  include(unit)
+
+  configure_file(${PROJECT_SOURCE_DIR}/config/flecsi-sp-config.h.in
+    ${CMAKE_BINARY_DIR}/flecsi-sp-config.h @ONLY)
+
+  install(
+    FILES ${CMAKE_BINARY_DIR}/flecsi-sp-config.h
+    DESTINATION include
+  )
+
   #----------------------------------------------------------------------------#
   # FleCSI-SP library.
   #----------------------------------------------------------------------------#
 
   include(library)
 
-  add_library_target(FleCSI-SP flecsi-sp EXPORT_TARGET FleCSI-SPTargets)
-
-  #----------------------------------------------------------------------------#
-  #----------------------------------------------------------------------------#
-
-  set(FLECSI_SP_CMAKE_DIR ${CMAKE_INSTALL_PREFIX}/${LIBDIR}/cmake/FleCSI-SP)
-
-  #----------------------------------------------------------------------------#
-  # Export targets and package.
-  #----------------------------------------------------------------------------#
-
-  export(
-    TARGETS FleCSI-SP
-    FILE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPTargets.cmake
+  add_library_target(FleCSI-SP flecsi-sp
+    EXPORT_TARGET
+      FleCSI-SPTargets
+    VERSION
+      ${FleCSI_SP_VERSION}
+    NAMESPACE
+      FleCSI-SP
+    INCLUDE_PRIVATE
+      ${CMAKE_BINARY_DIR}
+    LINK_PUBLIC
+      FleCSI::FleCSI
   )
 
-  export(PACKAGE FleCSI-SP)
-
   #----------------------------------------------------------------------------#
-  # CMake config file: This should be the last thing to happen.
+  # Config file.
   #----------------------------------------------------------------------------#
 
   configure_file(${PROJECT_SOURCE_DIR}/config/FleCSI-SPConfig.cmake.in
@@ -85,14 +108,36 @@ if(NOT FORMAT_ONLY)
 
   install(
     FILES ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPConfig.cmake
-    DESTINATION ${FLECSI_SP_CMAKE_DIR}
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/${LIBDIR}/cmake/FleCSI-SP
   )
 
-  install(
-    EXPORT FleCSI-SPTargets
-    DESTINATION ${FLECSI_SP_CMAKE_DIR}
-    COMPONENT dev
-  )
+  #----------------------------------------------------------------------------#
+  # Output configuration summary.
+  #----------------------------------------------------------------------------#
+
+  summary_header()
+  summary_info("CMAKE_BUILD_TYPE" "${CMAKE_BUILD_TYPE}" TRUE)
+  summary_info("CMAKE_INSTALL_PREFIX" "${CMAKE_INSTALL_PREFIX}" TRUE)
+  string(APPEND _summary "\n")
+  summary_info("CMAKE_CXX_COMPILER" "${CMAKE_CXX_COMPILER}" TRUE)
+  summary_info("CMAKE_CXX_FLAGS" "${CMAKE_CXX_FLAGS}" TRUE)
+  summary_info("CMAKE_C_COMPILER" "${CMAKE_C_COMPILER}" TRUE)
+  summary_info("CMAKE_C_FLAGS" "${CMAKE_C_FLAGS}" TRUE)
+  if(ClangFormat_FOUND)
+    summary_info("ClangFormat_EXECUTABLE" "${ClangFormat_EXECUTABLE}" TRUE)
+  endif()
+  string(APPEND _summary "\n")
+  summary_info("FleCSI_SP_VERSION" "${FleCSI_SP_VERSION}" TRUE)
+  summary_info("FleCSI_SP_DOCUMENTATION_VERSION"
+    "${FleCSI-SP_DOCUMENTATION_VERSION}" FALSE)
+  if(${PROJECT_NAME}_COMMITS)
+    summary_info("Repository state" "${${PROJECT_NAME}_COMMITS}" FALSE)
+  endif()
+  summary_option("ENABLE_FLOG" ${ENABLE_FLOG}
+    " (FLOG_STRIP_LEVEL ${FLOG_STRIP_LEVEL})")
+  summary_option("ENABLE_UNIT_TESTS" ${ENABLE_UNIT_TESTS} "")
+
+  message(STATUS ${_summary})
 
 else()
 

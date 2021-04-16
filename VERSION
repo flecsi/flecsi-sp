@@ -15,14 +15,21 @@ if [ -e $cwd/.git ] ; then
   detached=`git status --short --branch`
 
   if [[ $detached =~ "no branch" ]]; then
-    echo "none undefined"
-    exit 0
+    describe=`cat $cwd/.version`
   fi
 
-  describe=`git describe`
+  tags=`git tag`
+  if [[ -n $tags ]]; then
+    describe=`git describe`
+
+    if [[ "$describe" != *"-"* ]]; then
+      describe="$describe-0-0"
+    fi
+  else
+    describe=`cat $cwd/.version`
+  fi
 else
-  cat $cwd/.version
-  exit 0
+  describe=`cat $cwd/.version`
 fi
 
 IFS='-'
@@ -43,15 +50,18 @@ if [[ ${describe:0:1} == "d" ]]; then
 
 # Feature branch
 elif [[ ${describe:0:1} == "f" ]]; then
-  #major=`echo ${DESCRIBE[0]} | sed 's,f,,'`
   version=`echo ${DESCRIBE[0]} | sed 's,f,,'`
   IFS='.'
   read -ra VERSION <<< "$version"
   major=${VERSION[0]}
   minor=${VERSION[1]}
+  merge=${VERSION[2]}
   commits=${DESCRIBE[1]}
   if (( $commits > 0 )); then
-    echo "feature $major.$minor ($commits commits ahead at $sha)"
+    echo "feature $major.$minor ($commits commits ahead at $sha,"\
+      "with $merge downstream merges)"
+  elif (( $merge > 1)); then
+    echo "feature $major.$minor ($merge downstream merges)"
   else
     echo "feature $major.$minor"
   fi
