@@ -14,7 +14,7 @@ class FlecsiSp(CMakePackage):
     homepage = 'http://flecsi.org/'
     git      = 'https://github.com/flecsi/flecsi-sp.git'
 
-    version('2.0', branch='devel', submodules=False, preferred=True)
+    version('2.0', branch='2', submodules=False, preferred=True)
 
     #--------------------------------------------------------------------------#
     # Variants
