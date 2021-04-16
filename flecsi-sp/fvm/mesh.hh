@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <flecsi/topo/unstructured/coloring_utils.hh>
 #include <flecsi/topo/unstructured/interface.hh>
 
 namespace fsp {
@@ -18,8 +19,17 @@ struct config<1> {
 };
 
 template<std::size_t Dimension>
-struct burton
-  : flecsi::topo::specialization<flecsi::topo::unstructured, burton> {
+struct fvm : flecsi::topo::help,
+                flecsi::topo::specialization<flecsi::topo::unstructured,
+                  fvm<Dimension>> {
+
+  /*--------------------------------------------------------------------------*
+    Useful Types.
+   *--------------------------------------------------------------------------*/
+
+  using coloring =
+    typename flecsi::topo::specialization<flecsi::topo::unstructured,
+      fvm<Dimension>>::coloring;
 
   /*--------------------------------------------------------------------------*
     Policy Information.
@@ -29,7 +39,7 @@ struct burton
 
   using index_spaces = has<cells, vertices>;
 
-  static constexpr std::size_t dimension = Dimension;
+  static constexpr std::size_t dimension = 2;
 
   template<auto>
   static constexpr std::size_t privilege_count = 2;
@@ -50,7 +60,7 @@ struct burton
     Initialization.
    *--------------------------------------------------------------------------*/
 
-  static void initialize(data::topology_slot<burton> &) {} // initialize
+  static void initialize(flecsi::data::topology_slot<fvm> &) {}
 };
 
 } // namespace fsp
