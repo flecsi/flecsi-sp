@@ -1,0 +1,136 @@
+#------------------------------------------------------------------------------#
+# FleCSI CI Configuration for Environment
+#------------------------------------------------------------------------------#
+
+ARG OS
+FROM ${OS}
+
+#------------------------------------------------------------------------------#
+# Image arguments.
+#------------------------------------------------------------------------------#
+
+ARG SOURCE_REPO
+ARG SOURCE_BRANCH
+ARG SOURCE_REPOSITORY
+ARG SOURCE_VERSION
+ARG FLeCSI_REPOSITORY
+ARG EMPH="\e[38;5;36m"
+ARG NEMPH="\e[0m"
+
+#------------------------------------------------------------------------------#
+# The branch for this operation should be one of the primary flecsi
+# branches, e.g., 1.4, 2.0, or devel. The 'spack-repo' subdirectory of the
+# cloned branch will be used to install upstream packages, which can be
+# overriden if desired in the CI, but which will not have to be built
+# during the CI run if they are not overriden by the user's merge request.
+#------------------------------------------------------------------------------#
+
+RUN \
+  echo -e "${EMPH}Cloning flecsi: ${SOURCE_BRANCH} from ${FLeCSI_REPOSITORY}${NEMPH}"
+RUN git clone --single-branch --branch ${SOURCE_BRANCH} ${FLeCSI_REPOSITORY} .flecsi
+
+
+RUN \
+  echo -e "${EMPH}Cloning flecsi-sp: ${SOURCE_BRANCH} from ${SOURCE_REPOSITORY}${NEMPH}"
+RUN git clone --single-branch --branch ${SOURCE_BRANCH} ${SOURCE_REPOSITORY} .flecsi-sp
+
+#------------------------------------------------------------------------------#
+# Setup spack configuration.
+#------------------------------------------------------------------------------#
+
+ADD clang_fortran.py ./.clang_fortran.py
+ADD spack ./.spack-aux
+
+RUN export GNU_VERSION=`cat .gnu_version` && \
+  cat .spack-aux/packages.yaml | \
+    sed "s,GNU_VERSION,${GNU_VERSION},g" > \
+    .spack-upstream/etc/spack/packages.yaml
+
+RUN . .spack-upstream/share/spack/setup-env.sh && \
+  spack compiler find && \
+  spack repo add .flecsi/spack-repo &&\
+  spack repo add .flecsi-sp/spack-repo
+
+RUN export GNU_VERSION=`cat .gnu_version` && \
+  /home/flecsi/.clang_fortran.py '.spack/linux/compilers.yaml' \
+    '.spack-upstream/etc/spack/compilers.yaml' "${GNU_VERSION}"
+
+RUN export GNU_VERSION=`cat .gnu_version` && \
+  /home/flecsi/.clang_fortran.py '.spack/linux/compilers.yaml' \
+    '.spack/etc/spack/compilers.yaml' "${GNU_VERSION}"
+RUN rm -rf ~/.spack/linux/compilers.yaml
+
+RUN export GNU_VERSION=`cat .gnu_version` && \
+  cat .spack-aux/packages.yaml | \
+    sed "s,GNU_VERSION,${GNU_VERSION},g" > \
+    .spack/etc/spack/packages.yaml
+
+
+RUN cp .spack-aux/upstreams.yaml .spack/etc/spack
+
+#------------------------------------------------------------------------------#
+# Build flecsi dependencies with mpich provider.
+#------------------------------------------------------------------------------#
+
+RUN echo -e "${EMPH}Building mpich dependencies for flecsi-sp@${SOURCE_VERSION}${NEMPH}"
+
+RUN \
+  . .spack-upstream/share/spack/setup-env.sh \
+  && \
+  spack fetch --dependencies \
+    flecsi-sp@${SOURCE_VERSION} \
+    +flog \
+    +unit \
+    ^mpich \
+  && \
+  spack install --fail-fast --show-log-on-error --only dependencies \
+    flecsi-sp@${SOURCE_VERSION} \
+    +flog \
+    +unit \
+    ^mpich
+
+#------------------------------------------------------------------------------#
+# Build flecsi dependencies with openmpi provider.
+#------------------------------------------------------------------------------#
+
+RUN echo -e "${EMPH}Building openmpi dependencies for flecsi-sp@${SOURCE_VERSION}${NEMPH}"
+
+RUN \
+  . .spack-upstream/share/spack/setup-env.sh \
+  && \
+  spack fetch --dependencies \
+    flecsi-sp@${SOURCE_VERSION} \
+    +flog \
+    +unit \
+    ^openmpi \
+  && \
+  spack install --fail-fast --show-log-on-error --only dependencies \
+    flecsi-sp@${SOURCE_VERSION} \
+    +flog \
+    +unit \
+    ^openmpi
+
+#------------------------------------------------------------------------------#
+# Create format environment.
+#------------------------------------------------------------------------------#
+
+RUN . .spack-upstream/share/spack/setup-env.sh && \
+  spack env create format && \
+  spack env activate format && \
+  spack install cmake
+
+#------------------------------------------------------------------------------#
+# Remove the lanl_ristra_flecsi repository so that the MR can override
+# our defaults.
+#------------------------------------------------------------------------------#
+
+RUN . .spack/share/spack/setup-env.sh && \
+  spack repo remove lanl_ristra_flecsi
+
+#------------------------------------------------------------------------------#
+# Set default shell for interactive.
+#------------------------------------------------------------------------------#
+
+CMD /bin/bash
+
+# vim: syntax=dockerfile

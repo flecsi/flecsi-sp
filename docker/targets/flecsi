@@ -1,0 +1,43 @@
+#------------------------------------------------------------------------------#
+# FleCSI Tutorial Image
+#------------------------------------------------------------------------------#
+
+ARG OS
+FROM ${OS}
+
+#------------------------------------------------------------------------------#
+# Image arguments.
+#------------------------------------------------------------------------------#
+
+ARG SOURCE_VERSION
+
+#------------------------------------------------------------------------------#
+# Add spack repo.
+#------------------------------------------------------------------------------#
+
+RUN . /home/flecsi/.spack/share/spack/setup-env.sh && \
+  spack repo add .flecsi/spack-repo
+
+RUN . /home/flecsi/.spack/share/spack/setup-env.sh && \
+  spack repo add .flecsi-sp/spack-repo
+
+#------------------------------------------------------------------------------#
+# Install flecsi in the 'flecsi' environment.
+#------------------------------------------------------------------------------#
+
+RUN . /home/flecsi/.spack/share/spack/setup-env.sh && \
+  spack env create flecsi-sp && \
+  spack env activate flecsi-sp && \
+  spack install flecsi-sp@${SOURCE_VERSION} backend=legion \
+    +flog \
+    +unit \
+    ^mpich
+
+#------------------------------------------------------------------------------#
+# Set default work directory and shell for interactive.
+#------------------------------------------------------------------------------#
+
+WORKDIR /home/flecsi
+CMD /bin/bash
+
+# vim: syntax=dockerfile

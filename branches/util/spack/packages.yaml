@@ -1,0 +1,7 @@
+packages:
+  all:
+    compiler:
+      - gcc@GNU_VERSION
+    target: [skylake]
+  cmake:
+    version: [3.18.4]

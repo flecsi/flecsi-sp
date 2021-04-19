@@ -29,6 +29,9 @@ set(SPACK_REPOSITORY "https://github.com/spack/spack.git" CACHE STRING
   "Set the Spack repository")
 set(SPACK_BRANCH "develop" CACHE STRING "Set the Spack branch")
 
+set(FLeCSI_REPOSITORY "https://gitlab.lanl.gov/flecsi/flecsi-sp.git" CACHE STRING
+	"Set the FLeCSI repository")
+
 set(TARGET_BRANCH "devel" CACHE STRING
   "Set the target branch (branch subdir used for configuration)")
 
@@ -70,7 +73,9 @@ foreach(image ${BASE_IMAGES})
     ARGS
       SOURCE_REPO=${SOURCE_REPOSITORY}
       SOURCE_BRANCH=${SOURCE_BRANCH}
+      SOURCE_REPOSITORY=${SOURCE_REPOSITORY}
       SOURCE_VERSION=${SOURCE_VERSION}
+      FLeCSI_REPOSITORY=${FLeCSI_REPOSITORY}
       OS=${REGISTRY}:${image}
     DEPENDS
       push-${image}
@@ -84,6 +89,7 @@ foreach(image ${BASE_IMAGES})
     ARGS
       SPACK_REPO=${SPACK_REPOSITORY}
       SPACK_BRANCH=${SPACK_BRANCH}
+      FLeCSI_REPOSITORY=${FLeCSI_REPOSITORY}
       OS=${REGISTRY}:${image}
     DEPENDS
       push-${image}
@@ -93,10 +99,10 @@ foreach(image ${BASE_IMAGES})
     ${REGISTRY}:flecsi-sp-${image}
     docker/targets/flecsi-sp
     ARGS
-      SOURCE_VERSION=devel
-      OS=${REGISTRY}:devel-${image}
+      SOURCE_VERSION=2.0
+      OS=${REGISTRY}:2.0-${image}
     DEPENDS
-      push-devel-${image}
+      push-2.0-${image}
   )
 
 endforeach()
@@ -123,6 +129,8 @@ summary_header()
 summary_info("TARGET_BRANCH" "${TARGET_BRANCH}" TRUE)
 summary_info("SPACK_REPOSITORY" "${SPACK_REPOSITORY}" TRUE)
 summary_info("SPACK_BRANCH" "${SPACK_BRANCH}" TRUE)
+summary_info("FLeCSI_REPOSITORY" "${FLeCSI_REPOSITORY}" TRUE)
+summary_info("FLeCSI_BRANCH" "${FLeCSI_BRANCH}" TRUE)
 summary_info("SOURCE_REPOSITORY" "${SOURCE_REPOSITORY}" TRUE)
 summary_info("SOURCE_BRANCH" "${SOURCE_BRANCH}" TRUE)
 summary_info("SOURCE_VERSION" "${SOURCE_VERSION}" TRUE)
