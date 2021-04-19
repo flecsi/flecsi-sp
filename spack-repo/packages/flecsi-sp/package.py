@@ -19,6 +19,14 @@ class FlecsiSp(CMakePackage):
     #--------------------------------------------------------------------------#
     # Variants
     #--------------------------------------------------------------------------#
+ 
+    variant('backend', default='legion',
+            values=('legion', 'mpi', 'hpx'),
+            description='Distributed-Memory Backend', multi=False)
+
+    variant('caliper_detail', default='none',
+            values=('none', 'low', 'medium', 'high'),
+            description='Set Caliper Profiling Detail', multi=False)
 
     variant('flog', default=False,
             description='Enable FLOG Logging Utility')    
@@ -26,13 +34,40 @@ class FlecsiSp(CMakePackage):
     variant('unit', default=False,
             description='Enable Unit Tests (Requires +flog)')
 
+    variant('graphviz', default=False,
+            description='Enable GraphViz Support')
+
+    variant('hdf5', default=False,
+            description='Enable HDF5 Support')
+
+    variant('kokkos', default=False,
+            description='Enable Kokkos Support')
+
+    variant('cuda', default=False,
+             description='Enable CUDA Support')
+
+    variant('openmp', default=False,
+            description='Enable OpenMP Support')
+
+    # Spack-specific variants
+
+    variant('shared', default=True,
+            description='Build Shared Libraries')
+
     #--------------------------------------------------------------------------#
     # Dependencies
     #--------------------------------------------------------------------------#
 
     depends_on('flecsi@2.0:')
     depends_on('flecsi+flog',when='+flog')
-    depends_on('flecsi+flog',when='+unit')
+    depends_on('flecsi+flog+unit',when='+unit')
+    depends_on('flecsi+graphviz', when='+graphviz')
+    depends_on('flecsi+hdf5', when='+hdf5')
+    depends_on('flecsi+kokkos', when='+kokkos')
+    depends_on('flecsi+cuda', when='+cuda')
+    depends_on('flecsi+openp', when='+openmp')
+    for b in ('legion', 'mpi', 'hpx'):
+        depends_on('flecsi backend={0}'.format(b), when='backend=%s' %b)
 
     #--------------------------------------------------------------------------#
     # CMake Configuration
