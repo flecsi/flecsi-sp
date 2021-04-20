@@ -5,17 +5,17 @@
 
 #pragma once
 
+#include "flecsi-sp/fvm/config.hh"
+
 #include <flecsi/topo/unstructured/coloring_utils.hh>
 #include <flecsi/topo/unstructured/interface.hh>
-
-#include "config.hh"
 
 namespace fsp {
 
 template<std::size_t Dimension>
-struct fvm : flecsi::topo::help,
-                flecsi::topo::specialization<flecsi::topo::unstructured,
-                  fvm<Dimension>> {
+struct fvm
+  : flecsi::topo::help,
+    flecsi::topo::specialization<flecsi::topo::unstructured, fvm<Dimension>> {
 
   /*--------------------------------------------------------------------------*
     Useful Types.
