@@ -8,15 +8,9 @@
 #include <flecsi/topo/unstructured/coloring_utils.hh>
 #include <flecsi/topo/unstructured/interface.hh>
 
+#include "config.hh"
+
 namespace fsp {
-
-template<std::size_t Dimension>
-struct config;
-
-template<>
-struct config<1> {
-  enum index_space { vertices, edges = vertices, faces = edges, cells };
-};
 
 template<std::size_t Dimension>
 struct fvm : flecsi::topo::help,
@@ -35,11 +29,11 @@ struct fvm : flecsi::topo::help,
     Policy Information.
    *--------------------------------------------------------------------------*/
 
-  enum index_space { vertices, edges, faces, cells };
+  using index_space = typename config<Dimension>::index_space;
+  using index_spaces = typename config<Dimension>::index_spaces;
+  using connectivities = typename config<Dimension>::connectivities;
 
-  using index_spaces = has<cells, vertices>;
-
-  static constexpr std::size_t dimension = 2;
+  static constexpr std::size_t dimension = Dimension;
 
   template<auto>
   static constexpr std::size_t privilege_count = 2;
