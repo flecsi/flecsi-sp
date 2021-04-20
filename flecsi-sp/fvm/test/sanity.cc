@@ -3,6 +3,8 @@
   All rights reserved.
  */
 
+#include "flecsi-sp/fvm/mesh.hh"
+
 #include <flecsi/flog.hh>
 #include <flecsi/util/unit.hh>
 
