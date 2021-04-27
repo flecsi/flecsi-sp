@@ -23,8 +23,7 @@ if(NOT TARGET FleCSI-SP AND NOT FleCSI_SP_BINARY_DIR)
 endif()
 
 #------------------------------------------------------------------------------#
-# Set the FleCSI libraries.
+# Handle TPLs
 #------------------------------------------------------------------------------#
 
-set(FleCSI_SP_LIBRARIES FleCSI-SP)
-set(FleCSI_SP_LIBRARY_DEPENDENCIES @FLECSI_SP_LIBRARY_DEPENDENCIES@)
+find_package(FleCSI REQUIRED)
