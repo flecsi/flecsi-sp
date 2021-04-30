@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------#
-# FleCSI Tutorial Image
+# FleCSI-sp Tutorial Image
 #------------------------------------------------------------------------------#
 
 ARG OS
@@ -18,17 +18,19 @@ ARG SOURCE_VERSION
 RUN . /home/flecsi/.spack/share/spack/setup-env.sh && \
   spack repo add .flecsi/spack-repo
 
+RUN . /home/flecsi/.spack/share/spack/setup-env.sh && \
+  spack repo add .flecsi-sp/spack-repo
+
 #------------------------------------------------------------------------------#
 # Install flecsi in the 'flecsi' environment.
 #------------------------------------------------------------------------------#
 
 RUN . /home/flecsi/.spack/share/spack/setup-env.sh && \
-  spack env create flecsi && \
-  spack env activate flecsi && \
-  spack install flecsi@${SOURCE_VERSION} backend=legion \
+  spack env create flecsi-sp && \
+  spack env activate flecsi-sp && \
+  spack install flecsi-sp@${SOURCE_VERSION} backend=legion \
     +flog \
-    +graphviz \
-    +hdf5 \
+    +unit \
     +kokkos \
     ^mpich
 

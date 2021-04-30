@@ -29,7 +29,7 @@ set(SPACK_REPOSITORY "https://github.com/spack/spack.git" CACHE STRING
   "Set the Spack repository")
 set(SPACK_BRANCH "develop" CACHE STRING "Set the Spack branch")
 
-set(FLeCSI_REPOSITORY "https://gitlab.lanl.gov/flecsi/flecsi-sp.git" CACHE STRING
+set(FLeCSI_REPOSITORY "https://gitlab.lanl.gov/flecsi/flecsi.git" CACHE STRING
 	"Set the FLeCSI repository")
 
 set(TARGET_BRANCH "devel" CACHE STRING

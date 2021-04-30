@@ -1,0 +1,54 @@
+#------------------------------------------------------------------------------#
+# FleCSI-SP CI Configuration for Environment
+#------------------------------------------------------------------------------#
+
+ARG OS
+FROM ${OS}
+
+#------------------------------------------------------------------------------#
+# Setup spack configuration
+#------------------------------------------------------------------------------#
+
+ARG IMAGE_BRANCH
+
+RUN mkdir -p .spack/linux && \
+  export GNU_VERSION=`cat .gnu_version` && \
+    cat .images/branches/${IMAGE_BRANCH}/spack/packages.yaml | \
+    sed "s,GNU_VERSION,${GNU_VERSION},g" > .spack/linux/packages.yaml
+
+RUN . .spack/share/spack/setup-env.sh && \
+  spack compiler find
+
+#------------------------------------------------------------------------------#
+# Add gfortran to clang
+#------------------------------------------------------------------------------#
+
+ADD clang_fortran.py ./.clang_fortran.py
+RUN export GNU_VERSION=`cat .gnu_version` && \
+  /home/flecsi/.clang_fortran.py '.spack/linux/compilers.yaml' \
+    '.spack/linux/compilers.yaml' "${GNU_VERSION}"
+
+#------------------------------------------------------------------------------#
+# Install generic packages
+#------------------------------------------------------------------------------#
+
+RUN . .spack/share/spack/setup-env.sh && \
+  spack fetch --dependencies cmake && \
+  spack install cmake
+
+#------------------------------------------------------------------------------#
+# Create format environment
+#------------------------------------------------------------------------------#
+
+RUN . .spack/share/spack/setup-env.sh && \
+  spack env create format && \
+  spack env activate format && \
+  spack install cmake
+
+#------------------------------------------------------------------------------#
+# Set default shell for interactive
+#------------------------------------------------------------------------------#
+
+CMD /bin/bash
+
+# vim: syntax=dockerfile

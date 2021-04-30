@@ -27,7 +27,7 @@ ARG NEMPH="\e[0m"
 
 RUN \
   echo -e "${EMPH}Cloning flecsi: ${SOURCE_BRANCH} from ${FLeCSI_REPOSITORY}${NEMPH}"
-RUN git clone --single-branch --branch ${SOURCE_BRANCH} ${FLeCSI_REPOSITORY} .flecsi
+RUN git clone --single-branch --branch spack ${FLeCSI_REPOSITORY} .flecsi
 
 
 RUN \
@@ -79,15 +79,23 @@ RUN \
   && \
   spack fetch --dependencies \
     flecsi-sp@${SOURCE_VERSION} \
+    backend=legion caliper_detail=low build_type=Release \
+    +graphviz \
+    +hdf5 \
+    +kokkos \
     +flog \
     +unit \
     ^mpich \
   && \
   spack install --fail-fast --show-log-on-error --only dependencies \
     flecsi-sp@${SOURCE_VERSION} \
+    backend=legion caliper_detail=low build_type=Release \
+    +graphviz \
+    +hdf5 \
+    +kokkos \
     +flog \
     +unit \
-    ^mpich
+    ^mpich 
 
 #------------------------------------------------------------------------------#
 # Build flecsi dependencies with openmpi provider.
@@ -100,12 +108,20 @@ RUN \
   && \
   spack fetch --dependencies \
     flecsi-sp@${SOURCE_VERSION} \
+    backend=legion caliper_detail=low build_type=Release \
+    +graphviz \
+    +hdf5 \
+    +kokkos \
     +flog \
     +unit \
     ^openmpi \
   && \
   spack install --fail-fast --show-log-on-error --only dependencies \
     flecsi-sp@${SOURCE_VERSION} \
+    backend=legion caliper_detail=low build_type=Release \
+    +graphviz \
+    +hdf5 \
+    +kokkos \
     +flog \
     +unit \
     ^openmpi
@@ -125,7 +141,7 @@ RUN . .spack-upstream/share/spack/setup-env.sh && \
 #------------------------------------------------------------------------------#
 
 RUN . .spack/share/spack/setup-env.sh && \
-  spack repo remove lanl_ristra_flecsi
+  spack repo remove flecsi && spack repo remove flecsi-sp
 
 #------------------------------------------------------------------------------#
 # Set default shell for interactive.
