@@ -27,3 +27,9 @@ endif()
 #------------------------------------------------------------------------------#
 
 find_package(FleCSI REQUIRED)
+
+find_package(FleCSI-SPCMake REQUIRED)
+list(APPEND CMAKE_MODULE_PATH ${FleCSI_SPCMake_PREFIX})
+
+set(ENABLE_EXODUSII @ENABLE_EXODUSII@)
+include(exodusii)
