@@ -28,6 +28,7 @@ project(FleCSI-CI LANGUAGES NONE)
 set(SPACK_REPOSITORY "https://github.com/spack/spack.git" CACHE STRING
   "Set the Spack repository")
 set(SPACK_BRANCH "develop" CACHE STRING "Set the Spack branch")
+set(SPACK_HASH "HEAD" CACHE STRING "Set the Spack hash")
 
 set(FLeCSI_REPOSITORY "https://gitlab.lanl.gov/flecsi/flecsi.git" CACHE STRING
 	"Set the FLeCSI repository")
@@ -63,6 +64,7 @@ foreach(image ${BASE_IMAGES})
     ARGS
       SPACK_REPO=${SPACK_REPOSITORY}
       SPACK_BRANCH=${SPACK_BRANCH}
+      SPACK_HASH=${SPACK_HASH}
   )
 
   add_image(${TARGET_BRANCH}-${image}
@@ -129,6 +131,7 @@ summary_header()
 summary_info("TARGET_BRANCH" "${TARGET_BRANCH}" TRUE)
 summary_info("SPACK_REPOSITORY" "${SPACK_REPOSITORY}" TRUE)
 summary_info("SPACK_BRANCH" "${SPACK_BRANCH}" TRUE)
+summary_info("SPACK_HASH" "${SPACK_HASH}" TRUE)
 summary_info("FLeCSI_REPOSITORY" "${FLeCSI_REPOSITORY}" TRUE)
 summary_info("FLeCSI_BRANCH" "${FLeCSI_BRANCH}" TRUE)
 summary_info("SOURCE_REPOSITORY" "${SOURCE_REPOSITORY}" TRUE)

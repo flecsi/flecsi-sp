@@ -141,7 +141,7 @@ RUN . .spack-upstream/share/spack/setup-env.sh && \
 #------------------------------------------------------------------------------#
 
 RUN . .spack/share/spack/setup-env.sh && \
-  spack repo remove flecsi && spack repo remove flecsi-sp
+  spack repo remove flecsi-sp
 
 #------------------------------------------------------------------------------#
 # Set default shell for interactive.

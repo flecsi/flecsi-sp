@@ -8,10 +8,9 @@ FROM fedora:30
 # Image arguments.
 #------------------------------------------------------------------------------#
 
-ARG IMAGE_REPO
-ARG IMAGE_BRANCH
 ARG SPACK_REPO
 ARG SPACK_BRANCH
+ARG SPACK_HASH
 
 #------------------------------------------------------------------------------#
 # Install basic linux requirements
@@ -82,8 +81,11 @@ RUN pip3 install --user sphinx_rtd_theme
 ARG EMPH="\e[38;5;36m"
 ARG NEMPH="\e[0m"
 
-RUN echo -e "${EMPH}Cloning spack: ${SPACK_BRANCH} from ${SPACK_REPO}${NEMPH}"
+RUN echo -e "${EMPH}Cloning spack: ${SPACK_BRANCH} at ${SPACK_HASH} from ${SPACK_REPO}${NEMPH}"
 RUN git clone --single-branch --branch ${SPACK_BRANCH} ${SPACK_REPO} .spack
+RUN if [[ "${SPACK_HASH}" != "HEAD" ]] ; \
+      then cd .spack && git checkout -b "ci-${SPACK_HASH}" ${SPACK_HASH} ; \
+    fi
 RUN cp -r .spack .spack-upstream
 
 #------------------------------------------------------------------------------#
