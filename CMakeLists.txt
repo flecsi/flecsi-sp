@@ -106,8 +106,10 @@ if(NOT FORMAT_ONLY)
       FleCSI
     INCLUDE_PRIVATE
       ${CMAKE_BINARY_DIR}
+	  ${TPL_INCLUDES}
     LINK_PUBLIC
       FleCSI::FleCSI
+	  ${TPL_LIBRARIES}
   )
 
   #----------------------------------------------------------------------------#
