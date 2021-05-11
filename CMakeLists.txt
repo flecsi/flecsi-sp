@@ -6,6 +6,12 @@
 cmake_minimum_required(VERSION 3.12...3.19)
 
 #------------------------------------------------------------------------------#
+# Add local module path.
+#------------------------------------------------------------------------------#
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+#------------------------------------------------------------------------------#
 # Project.
 #------------------------------------------------------------------------------#
 
@@ -53,6 +59,7 @@ include(format)
 
 if(NOT FORMAT_ONLY)
 
+  include(exodusii)
   include(documentation)
 
   #----------------------------------------------------------------------------#
@@ -67,10 +74,14 @@ if(NOT FORMAT_ONLY)
 
   set(ENABLE_FLOG ${FleCSI_ENABLE_FLOG})
   set(FLECSI_RUNTIME_MODEL ${FleCSI_RUNTIME_MODEL})
-
   include(flog)
+
   set(FLECSI_UNIT_MAIN ${FleCSICMake_PREFIX}/unit-main.cc)
   include(unit)
+
+  #----------------------------------------------------------------------------#
+  # Compile-time definitions.
+  #----------------------------------------------------------------------------#
 
   configure_file(${PROJECT_SOURCE_DIR}/config/flecsi-sp-config.h.in
     ${CMAKE_BINARY_DIR}/flecsi-sp-config.h @ONLY)
@@ -109,6 +120,26 @@ if(NOT FORMAT_ONLY)
   install(
     FILES ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPConfig.cmake
     DESTINATION ${CMAKE_INSTALL_PREFIX}/${LIBDIR}/cmake/FleCSI-SP
+  )
+
+  #----------------------------------------------------------------------------#
+  # CMake utilities.
+  #----------------------------------------------------------------------------#
+
+  configure_file(${PROJECT_SOURCE_DIR}/config/FleCSI-SPCMakeConfig.cmake.in
+    ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPCMakeConfig.cmake
+    @ONLY)
+
+  install(
+    FILES ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/FleCSI-SPCMakeConfig.cmake
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/${LIBDIR}/cmake/FleCSI-SPCMake
+  )  
+
+  install(
+    FILES ${PROJECT_SOURCE_DIR}/cmake/exodusii.cmake
+    FILES ${PROJECT_SOURCE_DIR}/cmake/FindEXODUSII.cmake
+    FILES ${PROJECT_SOURCE_DIR}/cmake/FindNetCDF.cmake
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/FleCSI-SP/cmake
   )
 
   #----------------------------------------------------------------------------#
