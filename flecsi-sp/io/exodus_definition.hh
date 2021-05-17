@@ -2,7 +2,9 @@
   Copyright (c) 2021, Triad National Security, LLC
   All rights reserved
  */
-
+/**
+ * Exodus definition adapted from implementation by Marc Charest.
+ */
 #pragma once
 
 #include <iostream>
@@ -36,7 +38,8 @@ public:
     hex,
     polyhedron,
     unknown,
-    empty
+    empty,
+    invalid
   };
 
   using block_cursor = detail::block_cursor<size>;
@@ -356,12 +359,12 @@ public:
     return ret;
   }
 
-  int read_next_block() {
+  std::pair<index, block_t> read_next_block() {
     if(blk_cursor.current() >= elem_blk_ids.size())
-      return -1;
+      return std::make_pair(blk_cursor.current(), block_t::invalid);
     block_t blktype;
 
-    auto blkid = elem_blk_ids[blk_cursor.current()];
+    auto blkid = current_block();
 
     if(is_int64(exoid))
       blktype = read_block<long long>(
@@ -370,18 +373,74 @@ public:
       blktype =
         read_block<int>(exoid, blkid, EX_ELEM_BLOCK, blk_cursor, cell_cursor);
 
-    return 0;
+    return std::make_pair(blkid, blktype);
   }
 
-  void stream_cell(size cellid, std::vector<size> & ret) {
-    while(not cell_cursor.contains(cellid)) {
-      auto status = read_next_block();
-      if(status < 0) {
+  void stream_cell(index cellid, std::vector<size> & ret) {
+    while(not stream_contains(cellid)) {
+      block_t blktype;
+      std::tie(std::ignore, blktype) = read_next_block();
+      if(blktype == block_t::invalid) {
         flog_fatal("Problem finding cell while streaming");
       }
     }
 
     cell_cursor.get(cellid, ret);
+  }
+
+  index current_block() const {
+    return elem_blk_ids[blk_cursor.current()];
+  }
+
+  bool stream_contains(index cellid) const {
+    return cell_cursor.contains(cellid);
+  }
+
+  static std::vector<real> read_point_coords(int exo_id, size num_nodes) {
+    if(num_nodes <= 0)
+      flog_fatal(
+        "Exodus file has zero nodes, or parmeters haven't been read yet.");
+
+    // read nodes
+    std::vector<real> vertex_coord(num_dims * num_nodes);
+
+    // exodus is kind enough to fetch the data in the real type we ask for
+    auto status = ex_get_coord(exo_id,
+      vertex_coord.data(),
+      vertex_coord.data() + num_nodes,
+      vertex_coord.data() + 2 * num_nodes);
+
+    if(status)
+      flog_fatal("Problem getting vertex coordinates from exodus file, "
+                 << " ex_get_coord() returned " << status);
+
+    return vertex_coord;
+  }
+
+  std::vector<real> read_point_coords(size num_nodes) {
+    return read_point_coords(exoid, num_nodes);
+  }
+
+  static void write_point_coords(int exo_id,
+    const std::vector<real> & vertex_coord) {
+    if(vertex_coord.empty())
+      return;
+
+    auto num_nodes = vertex_coord.size() / num_dims;
+
+    // exodus is kind enough to fetch the data in the real type we ask for
+    auto status = ex_put_coord(exo_id,
+      vertex_coord.data(),
+      vertex_coord.data() + num_nodes,
+      vertex_coord.data() + 2 * num_nodes);
+
+    if(status)
+      flog_fatal("Problem putting vertex coordinates to exodus file, "
+                 << " ex_put_coord() returned " << status);
+  }
+
+  ex_init_params get_params() const {
+    return exo_params;
   }
 
 protected:

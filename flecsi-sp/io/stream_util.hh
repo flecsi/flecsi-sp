@@ -38,7 +38,7 @@ struct block_cursor {
     return false;
   }
 
-  size current() {
+  size current() const {
     return curr_block;
   }
 
@@ -56,7 +56,7 @@ struct entity_cursor {
    * check whether entity (id) is contained in current chunk.
    */
   bool contains(size id) const {
-    return id >= base and id < (base + curr.rowptr.size());
+    return id >= base and id < next();
   }
 
   /**

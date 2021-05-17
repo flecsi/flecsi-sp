@@ -6,11 +6,13 @@
 if(ENABLE_EXODUSII)
 set(io_HEADERS
   stream_util.hh
+  debug_util.hh
   exodus_definition.hh
   PARENT_SCOPE)
 
 set(io_SOURCES
   stream_util.cc
+  debug_util.cc
   exodus_definition.cc
   PARENT_SCOPE)
 
