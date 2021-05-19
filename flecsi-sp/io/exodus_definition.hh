@@ -28,6 +28,7 @@ public:
   using index = std::size_t;
   static constexpr int num_dims = D;
   static constexpr size CHUNK_SIZE = 256;
+  using point = std::array<real, D>;
 
   //! An enumeration to keep track of element types
   enum class block_t {
@@ -69,6 +70,8 @@ public:
         read_block_ids<long long>(exoid, EX_ELEM_BLOCK, num_elem_blk);
     else
       elem_blk_ids = read_block_ids<int>(exoid, EX_ELEM_BLOCK, num_elem_blk);
+
+    read_vertices_temporary();
   }
 
   ~exodus_base() {
@@ -421,6 +424,10 @@ public:
     return read_point_coords(exoid, num_nodes);
   }
 
+  void read_vertices_temporary() {
+    vertices = read_point_coords(exo_params.num_nodes);
+  }
+
   static void write_point_coords(int exo_id,
     const std::vector<real> & vertex_coord) {
     if(vertex_coord.empty())
@@ -443,6 +450,15 @@ public:
     return exo_params;
   }
 
+  point vertex(index vertexid) {
+    point vert;
+    for(int i = 0; i < num_dims; i++) {
+      vert[i] = vertices[i * exo_params.num_nodes + vertexid];
+    }
+
+    return vert;
+  }
+
 protected:
   int exoid;
   ex_init_params exo_params;
@@ -450,6 +466,7 @@ protected:
   bool int64;
   block_cursor blk_cursor;
   entity_cursor cell_cursor;
+  std::vector<real> vertices;
 };
 
 template<int D, class T>
