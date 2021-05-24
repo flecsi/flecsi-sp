@@ -44,7 +44,8 @@ public:
   };
 
   using block_cursor = detail::block_cursor<size>;
-  using entity_cursor = detail::entity_cursor<size>;
+  using connect_cursor = detail::connect_cursor<size>;
+  using vertex_cursor = detail::vertex_cursor<size, real, D>;
 
   template<typename U>
   struct block_stats_t {
@@ -62,6 +63,7 @@ public:
       flog_fatal("Problem reading exodus file");
 
     exo_params = read_params(exoid);
+    vert_cursor = std::make_unique<vertex_cursor>(exo_params.num_nodes);
 
     auto num_elem_blk = exo_params.num_elem_blk;
 
@@ -70,8 +72,6 @@ public:
         read_block_ids<long long>(exoid, EX_ELEM_BLOCK, num_elem_blk);
     else
       elem_blk_ids = read_block_ids<int>(exoid, EX_ELEM_BLOCK, num_elem_blk);
-
-    read_vertices_temporary();
   }
 
   ~exodus_base() {
@@ -222,7 +222,7 @@ public:
     ex_entity_id blkid,
     ex_entity_type entity_type,
     block_cursor & blk_cursor,
-    entity_cursor & cell_cursor) {
+    connect_cursor & cell_cursor) {
     using stats_t = block_stats_t<U>;
     stats_t stats;
     read_block_stats(exoid, blkid, EX_ELEM_BLOCK, stats);
@@ -424,10 +424,6 @@ public:
     return read_point_coords(exoid, num_nodes);
   }
 
-  void read_vertices_temporary() {
-    vertices = read_point_coords(exo_params.num_nodes);
-  }
-
   static void write_point_coords(int exo_id,
     const std::vector<real> & vertex_coord) {
     if(vertex_coord.empty())
@@ -450,10 +446,32 @@ public:
     return exo_params;
   }
 
+  void read_next_vertices() {
+    vert_cursor->move_next(CHUNK_SIZE);
+    auto [beg, end] = vert_cursor->interval();
+    auto num_nodes = end - beg;
+    auto status = ex_get_partial_coord(exoid,
+      beg + 1,
+      num_nodes,
+      vert_cursor->data(),
+      vert_cursor->data() + num_nodes,
+      vert_cursor->data() + 2 * num_nodes);
+
+    if(status)
+      flog_fatal("Problem getting vertex coordinates from exodus file, "
+                 << " ex_get_partial_coord() returned " << status);
+  }
+
   point vertex(index vertexid) {
+    while(not vert_cursor->contains(vertexid)) {
+      read_next_vertices();
+    }
+    auto [beg, end] = vert_cursor->interval();
+    auto num_nodes = end - beg;
+    const auto & vertices = vert_cursor->current();
     point vert;
     for(int i = 0; i < num_dims; i++) {
-      vert[i] = vertices[i * exo_params.num_nodes + vertexid];
+      vert[i] = vertices[i * num_nodes + (vertexid - beg)];
     }
 
     return vert;
@@ -465,8 +483,8 @@ protected:
   std::vector<index> elem_blk_ids;
   bool int64;
   block_cursor blk_cursor;
-  entity_cursor cell_cursor;
-  std::vector<real> vertices;
+  connect_cursor cell_cursor;
+  std::unique_ptr<vertex_cursor> vert_cursor;
 };
 
 template<int D, class T>

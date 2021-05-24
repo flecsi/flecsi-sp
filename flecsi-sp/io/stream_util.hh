@@ -49,8 +49,8 @@ protected:
 };
 
 template<class size>
-struct entity_cursor {
-  entity_cursor() : base(0), block_base(0), new_block(true) {}
+struct connect_cursor {
+  connect_cursor() : base(0), block_base(0), new_block(true) {}
 
   /**
    * check whether entity (id) is contained in current chunk.
@@ -108,6 +108,66 @@ protected:
   size block_base; /** block id of first cell in curr */
   bool new_block;
   csr<size> curr;
+};
+
+template<class size_t, class real, int num_dims>
+class vertex_cursor
+{
+public:
+  /**
+   * \param num_verts global number of vertices to stream
+   */
+  vertex_cursor(size_t num_verts) : base(0), num_verts(num_verts) {}
+
+  /**
+   * check whether entity (id) is contained in current chunk.
+   */
+  bool contains(size_t id) const {
+    return id >= base and id < next();
+  }
+
+  /**
+   * Get id of the next entity to read.
+   */
+  size_t next() const {
+    return (size() == 0) ? 0 : base + size();
+  }
+
+  size_t size() const {
+    return curr.size() / num_dims;
+  }
+
+  real * data() {
+    return curr.data();
+  }
+
+  const std::vector<real> & current() const {
+    return curr;
+  }
+
+  /**
+   * get interval [begin, end) of entities in curr.
+   */
+  std::pair<size_t, size_t> interval() const {
+    return std::make_pair(base, base + size());
+  }
+
+  /**
+   * Move cursor (prepare for inserting another chunk of entities).
+   */
+  void move_next(size_t chunksize) {
+    base = next();
+    if(base >= num_verts)
+      base = 0;
+    curr.clear();
+    chunksize = std::min(chunksize, num_verts - base);
+    curr.resize(chunksize * num_dims);
+  }
+
+protected:
+  size_t base;
+  size_t num_verts;
+  std::vector<real> curr;
 };
 
 } // namespace detail
