@@ -13,6 +13,7 @@
 #include <exodusII.h>
 
 #include <flecsi/flog.hh>
+#include <flecsi/data.hh>
 
 #include "flecsi-sp/io/stream_util.hh"
 
@@ -26,7 +27,9 @@ public:
   using size = std::size_t;
   using real = T;
   using index = std::size_t;
+  using crs = flecsi::topo::unstructured_impl::crs;
   static constexpr int num_dims = D;
+  static constexpr flecsi::Dimension dimension() { return D; }
   static constexpr size CHUNK_SIZE = 256;
   using point = std::array<real, D>;
 
@@ -57,7 +60,7 @@ public:
     char elem_type[MAX_STR_LENGTH];
   };
 
-  exodus_base(const std::string & filename) : blk_cursor() {
+  exodus_base(const std::string & filename) {
     exoid = open(filename, std::ios_base::in);
     if(exoid < 0)
       flog_fatal("Problem reading exodus file");
@@ -66,6 +69,7 @@ public:
     vert_cursor = std::make_unique<vertex_cursor>(exo_params.num_nodes);
 
     auto num_elem_blk = exo_params.num_elem_blk;
+    blk_cursor = std::make_unique<block_cursor>( num_elem_blk );
 
     if(is_int64(exoid))
       elem_blk_ids =
@@ -357,29 +361,34 @@ public:
         rowptr.emplace_back(rowptr.back() + cnt);
         base += cnt;
       }
+
+      if (finished_block and blk_cursor.current() == 0) {
+        // went through all blocks and are restarting.
+        cell_cursor.reset();
+      }
     }
 
     return ret;
   }
 
-  std::pair<index, block_t> read_next_block() {
-    if(blk_cursor.current() >= elem_blk_ids.size())
-      return std::make_pair(blk_cursor.current(), block_t::invalid);
+  std::pair<index, block_t> read_next_block() const {
+    if(blk_cursor->current() >= elem_blk_ids.size())
+      return std::make_pair(blk_cursor->current(), block_t::invalid);
     block_t blktype;
 
     auto blkid = current_block();
 
     if(is_int64(exoid))
       blktype = read_block<long long>(
-        exoid, blkid, EX_ELEM_BLOCK, blk_cursor, cell_cursor);
+        exoid, blkid, EX_ELEM_BLOCK, *blk_cursor, cell_cursor);
     else
       blktype =
-        read_block<int>(exoid, blkid, EX_ELEM_BLOCK, blk_cursor, cell_cursor);
+        read_block<int>(exoid, blkid, EX_ELEM_BLOCK, *blk_cursor, cell_cursor);
 
     return std::make_pair(blkid, blktype);
   }
 
-  void stream_cell(index cellid, std::vector<size> & ret) {
+  void stream_cell(index cellid, std::vector<size> & ret) const {
     while(not stream_contains(cellid)) {
       block_t blktype;
       std::tie(std::ignore, blktype) = read_next_block();
@@ -392,7 +401,7 @@ public:
   }
 
   index current_block() const {
-    return elem_blk_ids[blk_cursor.current()];
+    return elem_blk_ids[blk_cursor->current()];
   }
 
   bool stream_contains(index cellid) const {
@@ -482,9 +491,9 @@ protected:
   ex_init_params exo_params;
   std::vector<index> elem_blk_ids;
   bool int64;
-  block_cursor blk_cursor;
-  connect_cursor cell_cursor;
-  std::unique_ptr<vertex_cursor> vert_cursor;
+  mutable std::unique_ptr<block_cursor> blk_cursor;
+  mutable connect_cursor cell_cursor;
+  mutable std::unique_ptr<vertex_cursor> vert_cursor;
 };
 
 template<int D, class T>
@@ -498,6 +507,7 @@ public:
   using real = typename base::real;
   using size = typename base::size;
   using index = typename base::index;
+  using crs = typename base::crs;
   using base::elem_blk_ids;
   using base::exo_params;
   using base::exoid;
@@ -517,12 +527,26 @@ public:
       flog_fatal("num_entities: dim: " << dim << " not implemented.");
   }
 
-  std::vector<size> entities(int from_dim, int to_dim, size from_id) {
+  std::vector<size> entities(int from_dim, int to_dim, size from_id) const {
     std::vector<size> ret;
     if(from_dim == num_dims and to_dim == 0) {
       this->stream_cell(from_id, ret);
     }
     return ret;
+  }
+
+  static void build_intermediary_from_vertices(flecsi::Dimension dim,
+                                               const std::vector<flecsi::Dimension> & verts,
+                                               crs & inter)
+  {
+    flog_assert(dim == 1, "Invalid dimension: " << dim);
+    for (auto v0 = verts.begin(), v1 = std::next(v0);
+         v0 != verts.end();
+         ++v0, ++ v1) {
+      if (v1 == verts.end())
+        v1 = verts.begin();
+      inter.add_row({*v0, *v1});
+    }
   }
 };
 
@@ -553,7 +577,7 @@ public:
       flog_fatal("num_entities: dim: " << dim << " not implemented.");
   }
 
-  std::vector<size> entities(int from_dim, int to_dim, size from_id) {
+  std::vector<size> entities(int from_dim, int to_dim, size from_id) const {
     std::vector<size> ret;
     if(from_dim == num_dims and to_dim == 0) {
       this->stream_cell(from_id, ret);

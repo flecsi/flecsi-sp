@@ -103,8 +103,8 @@ write_blocks(int exoid, Def & def, const std::vector<std::size_t> & colors) {
   auto currblktype = blktype;
   for(typename Def::size cellid{0}; cellid < def.num_entities(Def::num_dims);
       cellid++) {
-    if(not def.stream_contains(cellid)) {
-      std::tie(blkid, blktype) = def.read_next_block();
+    while(not def.stream_contains(cellid)) {
+         std::tie(blkid, blktype) = def.read_next_block();
     }
     if(blkid != currblk) {
       // write current block

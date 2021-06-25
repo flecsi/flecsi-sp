@@ -19,7 +19,8 @@ struct csr {
 
 template<class size>
 struct block_cursor {
-  block_cursor() : curr_block(0), entities_left(0), block_initialized(false) {}
+  block_cursor(size nblocks) : num_blocks(nblocks), curr_block(0),
+                               entities_left(0), block_initialized(false) {}
 
   void init(size num_entities) {
     if(not block_initialized) {
@@ -32,6 +33,8 @@ struct block_cursor {
     entities_left -= num_new;
     if(entities_left <= 0) {
       ++curr_block;
+      if (curr_block >= num_blocks)
+        curr_block = 0;
       block_initialized = false;
       return true;
     }
@@ -43,6 +46,7 @@ struct block_cursor {
   }
 
 protected:
+  size num_blocks;
   size curr_block;
   size entities_left;
   bool block_initialized;
@@ -50,7 +54,15 @@ protected:
 
 template<class size>
 struct connect_cursor {
-  connect_cursor() : base(0), block_base(0), new_block(true) {}
+  connect_cursor() : base(0), block_base(0),
+                     new_block(true), mark_reset(false) {}
+
+  /**
+   * Reset cursor (when we have cycled through all blocks).
+   */
+  void reset() {
+    mark_reset = true;
+  }
 
   /**
    * check whether entity (id) is contained in current chunk.
@@ -82,6 +94,11 @@ struct connect_cursor {
     base = next();
     new_block = finished_block;
     block_base = next_in_block();
+    if (mark_reset) {
+      base = 0;
+      block_base = 0;
+      mark_reset = false;
+    }
     curr.rowptr.clear();
     curr.colind.clear();
     curr.rowptr.reserve(nrows + 1);
@@ -107,6 +124,7 @@ protected:
   size base; /** global id of first cell in curr */
   size block_base; /** block id of first cell in curr */
   bool new_block;
+  bool mark_reset;
   csr<size> curr;
 };
 

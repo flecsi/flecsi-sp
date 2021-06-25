@@ -24,3 +24,16 @@ add_unit(sanity
   LIBRARIES
     FleCSI-SP
 )
+
+if(ENABLE_EXODUSII)
+add_unit(coloring
+  SOURCES
+    test/coloring.cc
+  LIBRARIES
+    FleCSI-SP
+  INPUTS
+    ${PROJECT_SOURCE_DIR}/data/meshes/2d/mixed/mixed.exo
+    ${PROJECT_SOURCE_DIR}/data/meshes/2d/voro/voro.g
+    ${PROJECT_SOURCE_DIR}/data/meshes/2d/square/square_32x32.g
+  THREADS 4)
+endif()
