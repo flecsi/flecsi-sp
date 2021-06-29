@@ -98,44 +98,39 @@ write_blocks(int exoid, Def & def, const std::vector<std::size_t> & colors) {
   std::vector<ex_index_t> entity_nodes;
   std::vector<typename Def::real> block_coloring;
   std::vector<int> entity_node_counts;
-  auto [blkid, blktype] = def.read_next_block();
-  auto currblk = blkid;
-  auto currblktype = blktype;
+
+  int current_block = 0;
   for(typename Def::size cellid{0}; cellid < def.num_entities(Def::num_dims);
       cellid++) {
-    if(not def.stream_contains(cellid)) {
-      std::tie(blkid, blktype) = def.read_next_block();
-    }
-    if(blkid != currblk) {
-      // write current block
+    std::vector<typename Def::index> nodes;
+    def.stream(cellid, nodes);
+    const auto & curr_loc = def.get_block_cursor().current_location();
+    auto blktype = def.block_type(curr_loc.block);
+    auto blkid = def.block_id(curr_loc.block);
+    if(current_block != curr_loc.block) {
       write_block<U>(exoid,
         def,
-        currblk,
-        currblktype,
+        def.block_id(current_block),
+        def.block_type(current_block),
         entity_nodes,
         entity_node_counts,
         block_coloring);
-
       entity_nodes.clear();
       block_coloring.clear();
       entity_node_counts.clear();
-      currblk = blkid;
-      currblktype = blktype;
     }
-
-    std::vector<typename Def::index> nodes;
-    def.stream_cell(cellid, nodes);
     if(blktype == Def::block_t::polygon)
       entity_node_counts.emplace_back(nodes.size());
     for(auto nodeid : nodes) {
       entity_nodes.emplace_back(nodeid + 1);
     }
     block_coloring.emplace_back(colors[cellid]);
+    current_block = curr_loc.block;
   }
   write_block<U>(exoid,
     def,
-    blkid,
-    blktype,
+    def.block_id(current_block),
+    def.block_type(current_block),
     entity_nodes,
     entity_node_counts,
     block_coloring);

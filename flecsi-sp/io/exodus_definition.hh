@@ -12,6 +12,7 @@
 
 #include <exodusII.h>
 
+#include <flecsi/data.hh>
 #include <flecsi/flog.hh>
 
 #include "flecsi-sp/io/stream_util.hh"
@@ -26,8 +27,13 @@ public:
   using size = std::size_t;
   using real = T;
   using index = std::size_t;
+  using crs = flecsi::topo::unstructured_impl::crs;
   static constexpr int num_dims = D;
+  static constexpr flecsi::Dimension dimension() {
+    return D;
+  }
   static constexpr size CHUNK_SIZE = 256;
+  using point = std::array<real, D>;
 
   //! An enumeration to keep track of element types
   enum class block_t {
@@ -43,7 +49,7 @@ public:
   };
 
   using block_cursor = detail::block_cursor<size>;
-  using entity_cursor = detail::entity_cursor<size>;
+  using vertex_cursor = detail::vertex_cursor<size, real, D>;
 
   template<typename U>
   struct block_stats_t {
@@ -55,12 +61,13 @@ public:
     char elem_type[MAX_STR_LENGTH];
   };
 
-  exodus_base(const std::string & filename) : blk_cursor() {
+  exodus_base(const std::string & filename) {
     exoid = open(filename, std::ios_base::in);
     if(exoid < 0)
       flog_fatal("Problem reading exodus file");
 
     exo_params = read_params(exoid);
+    vert_cursor = std::make_unique<vertex_cursor>(exo_params.num_nodes);
 
     auto num_elem_blk = exo_params.num_elem_blk;
 
@@ -69,6 +76,26 @@ public:
         read_block_ids<long long>(exoid, EX_ELEM_BLOCK, num_elem_blk);
     else
       elem_blk_ids = read_block_ids<int>(exoid, EX_ELEM_BLOCK, num_elem_blk);
+
+    elem_blk_types.resize(elem_blk_ids.size());
+
+    // read block counts to initialize block_cursor (so it can find what block
+    // contains an entity)
+    std::vector<std::pair<size, bool>> block_counts;
+    for(auto blkid : elem_blk_ids) {
+      if(is_int64(exoid)) {
+        block_stats_t<long long> stats;
+        read_block_stats(exoid, blkid, EX_ELEM_BLOCK, stats);
+        block_counts.emplace_back(stats.num_elem_this_blk, ispoly(stats));
+      }
+      else {
+        block_stats_t<int> stats;
+        read_block_stats(exoid, blkid, EX_ELEM_BLOCK, stats);
+        block_counts.emplace_back(stats.num_elem_this_blk, ispoly(stats));
+      }
+    }
+    blk_cursor =
+      std::make_unique<block_cursor>(std::move(block_counts), CHUNK_SIZE);
   }
 
   ~exodus_base() {
@@ -129,6 +156,12 @@ public:
       flog_fatal("Unknown file mode");
       return -1;
     }
+  }
+
+  template<class U>
+  static bool ispoly(block_stats_t<U> & stats) {
+    return (strcasecmp("nsided", stats.elem_type) == 0 or
+            strcasecmp("nfaced", stats.elem_type) == 0);
   }
 
   static void close(int exo_id) {
@@ -219,15 +252,13 @@ public:
     ex_entity_id blkid,
     ex_entity_type entity_type,
     block_cursor & blk_cursor,
-    entity_cursor & cell_cursor) {
+    U start) {
     using stats_t = block_stats_t<U>;
     stats_t stats;
     read_block_stats(exoid, blkid, EX_ELEM_BLOCK, stats);
 
     if(not stats.num_elem_this_blk)
       return block_t::empty;
-
-    blk_cursor.init(stats.num_elem_this_blk);
 
     using ex_index_t = U;
 
@@ -289,11 +320,9 @@ public:
     }
     // fixed element size
     else {
-      U start = cell_cursor.next_in_block();
       U end = start + CHUNK_SIZE;
       end = std::min(end, stats.num_elem_this_blk);
       auto num_elem_this_blk = end - start;
-      auto finished = (end == stats.num_elem_this_blk);
 
       // set the counts
       counts.resize(num_elem_this_blk);
@@ -336,11 +365,9 @@ public:
     } // element type
 
     { // filter block
-      bool finished_block = blk_cursor.move(counts.size());
-      // increment cell_cursor base cell
-      cell_cursor.move_next(counts.size(), indices.size(), finished_block);
-      auto & rowptr = cell_cursor.data().rowptr;
-      auto & colind = cell_cursor.data().colind;
+      blk_cursor.alloc(counts.size(), indices.size());
+      auto & rowptr = blk_cursor.data().rowptr;
+      auto & colind = blk_cursor.data().colind;
 
       // create cells in mesh
       size base = 0;
@@ -359,41 +386,40 @@ public:
     return ret;
   }
 
-  std::pair<index, block_t> read_next_block() {
-    if(blk_cursor.current() >= elem_blk_ids.size())
-      return std::make_pair(blk_cursor.current(), block_t::invalid);
+  block_t stream_block(int block, size offset) const {
+    if(block >= elem_blk_ids.size())
+      return block_t::invalid;
     block_t blktype;
 
-    auto blkid = current_block();
+    auto blkid = elem_blk_ids[block];
 
+    blk_cursor->move(block, offset);
     if(is_int64(exoid))
-      blktype = read_block<long long>(
-        exoid, blkid, EX_ELEM_BLOCK, blk_cursor, cell_cursor);
+      blktype =
+        read_block<long long>(exoid, blkid, EX_ELEM_BLOCK, *blk_cursor, offset);
     else
       blktype =
-        read_block<int>(exoid, blkid, EX_ELEM_BLOCK, blk_cursor, cell_cursor);
+        read_block<int>(exoid, blkid, EX_ELEM_BLOCK, *blk_cursor, offset);
 
-    return std::make_pair(blkid, blktype);
+    elem_blk_types[block] = blktype;
+
+    return blktype;
   }
 
-  void stream_cell(index cellid, std::vector<size> & ret) {
-    while(not stream_contains(cellid)) {
-      block_t blktype;
-      std::tie(std::ignore, blktype) = read_next_block();
-      if(blktype == block_t::invalid) {
-        flog_fatal("Problem finding cell while streaming");
+  void stream(index entity_id, std::vector<size> & ret) const {
+    if(not stream_contains(entity_id)) {
+      auto loc = blk_cursor->find_entity(entity_id);
+      if(loc.block == -1) {
+        flog_fatal("Problem finding entity in file: " << entity_id);
       }
+      stream_block(loc.block, loc.offset);
     }
 
-    cell_cursor.get(cellid, ret);
+    blk_cursor->get(entity_id, ret);
   }
 
-  index current_block() const {
-    return elem_blk_ids[blk_cursor.current()];
-  }
-
-  bool stream_contains(index cellid) const {
-    return cell_cursor.contains(cellid);
+  bool stream_contains(index entity_id) const {
+    return blk_cursor->contains(entity_id);
   }
 
   static std::vector<real> read_point_coords(int exo_id, size num_nodes) {
@@ -443,13 +469,57 @@ public:
     return exo_params;
   }
 
+  void read_next_vertices() {
+    vert_cursor->move_next(CHUNK_SIZE);
+    auto [beg, end] = vert_cursor->interval();
+    auto num_nodes = end - beg;
+    auto status = ex_get_partial_coord(exoid,
+      beg + 1,
+      num_nodes,
+      vert_cursor->data(),
+      vert_cursor->data() + num_nodes,
+      vert_cursor->data() + 2 * num_nodes);
+
+    if(status)
+      flog_fatal("Problem getting vertex coordinates from exodus file, "
+                 << " ex_get_partial_coord() returned " << status);
+  }
+
+  point vertex(index vertexid) {
+    while(not vert_cursor->contains(vertexid)) {
+      read_next_vertices();
+    }
+    auto [beg, end] = vert_cursor->interval();
+    auto num_nodes = end - beg;
+    const auto & vertices = vert_cursor->current();
+    point vert;
+    for(int i = 0; i < num_dims; i++) {
+      vert[i] = vertices[i * num_nodes + (vertexid - beg)];
+    }
+
+    return vert;
+  }
+
+  const block_cursor & get_block_cursor() const {
+    return *blk_cursor;
+  }
+
+  index block_id(std::size_t ind) const {
+    return elem_blk_ids[ind];
+  }
+
+  block_t block_type(std::size_t ind) const {
+    return elem_blk_types[ind];
+  }
+
 protected:
   int exoid;
   ex_init_params exo_params;
   std::vector<index> elem_blk_ids;
+  mutable std::vector<block_t> elem_blk_types;
   bool int64;
-  block_cursor blk_cursor;
-  entity_cursor cell_cursor;
+  mutable std::unique_ptr<block_cursor> blk_cursor;
+  mutable std::unique_ptr<vertex_cursor> vert_cursor;
 };
 
 template<int D, class T>
@@ -463,6 +533,7 @@ public:
   using real = typename base::real;
   using size = typename base::size;
   using index = typename base::index;
+  using crs = typename base::crs;
   using base::elem_blk_ids;
   using base::exo_params;
   using base::exoid;
@@ -482,12 +553,24 @@ public:
       flog_fatal("num_entities: dim: " << dim << " not implemented.");
   }
 
-  std::vector<size> entities(int from_dim, int to_dim, size from_id) {
+  std::vector<size> entities(int from_dim, int to_dim, size from_id) const {
     std::vector<size> ret;
     if(from_dim == num_dims and to_dim == 0) {
-      this->stream_cell(from_id, ret);
+      this->stream(from_id, ret);
     }
     return ret;
+  }
+
+  static void build_intermediary_from_vertices(flecsi::Dimension dim,
+    const std::vector<flecsi::Dimension> & verts,
+    crs & inter) {
+    flog_assert(dim == 1, "Invalid dimension: " << dim);
+    for(auto v0 = verts.begin(), v1 = std::next(v0); v0 != verts.end();
+        ++v0, ++v1) {
+      if(v1 == verts.end())
+        v1 = verts.begin();
+      inter.add_row({*v0, *v1});
+    }
   }
 };
 
@@ -518,10 +601,10 @@ public:
       flog_fatal("num_entities: dim: " << dim << " not implemented.");
   }
 
-  std::vector<size> entities(int from_dim, int to_dim, size from_id) {
+  std::vector<size> entities(int from_dim, int to_dim, size from_id) const {
     std::vector<size> ret;
     if(from_dim == num_dims and to_dim == 0) {
-      this->stream_cell(from_id, ret);
+      this->stream(from_id, ret);
     }
     return ret;
   }
