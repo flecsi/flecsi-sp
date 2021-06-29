@@ -19,50 +19,15 @@ struct csr {
 
 template<class size>
 struct block_cursor {
-  block_cursor(size nblocks) : num_blocks(nblocks), curr_block(0),
-                               entities_left(0), block_initialized(false) {}
+  struct location {
+    int block;
+    size offset;
+  };
 
-  void init(size num_entities) {
-    if(not block_initialized) {
-      entities_left = num_entities;
-      block_initialized = true;
-    }
-  }
-
-  bool move(size num_new) {
-    entities_left -= num_new;
-    if(entities_left <= 0) {
-      ++curr_block;
-      if (curr_block >= num_blocks)
-        curr_block = 0;
-      block_initialized = false;
-      return true;
-    }
-    return false;
-  }
-
-  size current() const {
-    return curr_block;
-  }
-
-protected:
-  size num_blocks;
-  size curr_block;
-  size entities_left;
-  bool block_initialized;
-};
-
-template<class size>
-struct connect_cursor {
-  connect_cursor() : base(0), block_base(0),
-                     new_block(true), mark_reset(false) {}
-
-  /**
-   * Reset cursor (when we have cycled through all blocks).
-   */
-  void reset() {
-    mark_reset = true;
-  }
+  block_cursor(std::vector<std::pair<size, bool>> && entities_per_block,
+    size chunk_size)
+    : base(0), block_counts(std::move(entities_per_block)),
+      chunk_size(chunk_size) {}
 
   /**
    * check whether entity (id) is contained in current chunk.
@@ -78,32 +43,54 @@ struct connect_cursor {
     return (curr.rowptr.size() == 0) ? 0 : base + curr.rowptr.size() - 1;
   }
 
-  /**
-   * Get id (within block) of the next entity to read.
-   */
-  size next_in_block() const {
-    return (new_block or (curr.rowptr.size() == 0))
-             ? 0
-             : block_base + curr.rowptr.size() - 1;
-  }
-
-  /**
-   * Move cursor (prepare for inserting another chunk of entities).
-   */
-  void move_next(size nrows, size nnz, bool finished_block) {
-    base = next();
-    new_block = finished_block;
-    block_base = next_in_block();
-    if (mark_reset) {
-      base = 0;
-      block_base = 0;
-      mark_reset = false;
+  void move(int block, size offset) {
+    curr_loc = {block, offset};
+    base = 0;
+    for(int i = 0; i < block; i++) {
+      base += block_counts[i].first;
     }
+    base += offset;
+
     curr.rowptr.clear();
     curr.colind.clear();
+  }
+
+  void alloc(size nrows, size nnz) {
     curr.rowptr.reserve(nrows + 1);
     curr.colind.reserve(nnz);
     curr.rowptr.emplace_back(0);
+  }
+
+  location find_entity(size eid) {
+    size curr = 0;
+    location ret{0, 0};
+    for(auto & blkinfo : block_counts) {
+      if(blkinfo.second) { // polyhedra
+        curr += blkinfo.first;
+        if(eid < curr)
+          return ret;
+        ++ret.block;
+      }
+      else { // fixed element so read by chunks
+        if(eid < curr + blkinfo.first) { // first check if in block
+          long long entities_remaining = blkinfo.first;
+          ret.offset = 0;
+          while(entities_remaining > 0) {
+            entities_remaining -= chunk_size;
+            if(eid < curr + ret.offset + chunk_size)
+              return ret;
+            ret.offset += chunk_size;
+          }
+        }
+        curr += blkinfo.first;
+        ++ret.block;
+      }
+    }
+
+    // did not find entity (eid)
+    ret.block = -1;
+    ret.offset = -1;
+    return ret;
   }
 
   void get(size id, std::vector<size> & ret) {
@@ -120,12 +107,16 @@ struct connect_cursor {
     return curr;
   }
 
+  const location & current_location() const {
+    return curr_loc;
+  }
+
 protected:
-  size base; /** global id of first cell in curr */
-  size block_base; /** block id of first cell in curr */
-  bool new_block;
-  bool mark_reset;
+  size base;
+  std::vector<std::pair<size, bool>> block_counts;
+  size chunk_size;
   csr<size> curr;
+  location curr_loc;
 };
 
 template<class size_t, class real, int num_dims>
