@@ -469,7 +469,7 @@ public:
     return exo_params;
   }
 
-  void read_next_vertices() {
+  void read_next_vertices() const {
     vert_cursor->move_next(CHUNK_SIZE);
     auto [beg, end] = vert_cursor->interval();
     auto num_nodes = end - beg;
@@ -485,7 +485,7 @@ public:
                  << " ex_get_partial_coord() returned " << status);
   }
 
-  point vertex(index vertexid) {
+  point vertex(index vertexid) const {
     while(not vert_cursor->contains(vertexid)) {
       read_next_vertices();
     }
@@ -561,8 +561,9 @@ public:
     return ret;
   }
 
+  template<class VID>
   static void build_intermediary_from_vertices(flecsi::Dimension dim,
-    const std::vector<flecsi::Dimension> & verts,
+    const std::vector<VID> & verts,
     crs & inter) {
     flog_assert(dim == 1, "Invalid dimension: " << dim);
     for(auto v0 = verts.begin(), v1 = std::next(v0); v0 != verts.end();
