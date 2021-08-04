@@ -25,14 +25,20 @@ write_block(int exoid,
   using ex_index_t = U;
   std::string type_str;
   switch(blktype) {
-    case(Def::block_t::quad):
-      type_str = "quad4";
-      break;
-    case(Def::block_t::tri):
-      type_str = "tri3";
-      break;
-    default:
-      type_str = "nsided";
+  case(Def::block_t::quad):
+    type_str = "quad4";
+    break;
+  case(Def::block_t::tri):
+    type_str = "tri3";
+    break;
+  case(Def::block_t::hex):
+    type_str = "hex8";
+    break;
+  case(Def::block_t::tet):
+    type_str = "tet4";
+    break;
+  default:
+    type_str = "nsided";
   };
 
   ex_index_t num_nodes_this_blk = entity_nodes.size();

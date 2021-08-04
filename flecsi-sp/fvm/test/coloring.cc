@@ -45,8 +45,19 @@ gather_raw(std::vector<std::size_t> raw) {
   return full_raw;
 }
 
+template<unsigned short ND>
+topo::unstructured_impl::coloring_definition
+create_coloring_def(const Color colors)
+{
+  if constexpr (ND == 2)
+                 return {colors, 0, 2, 1, 1, {{}}};
+  else return {colors, 0, 3, 1, 1, {{}}};
+}
+
+
+template<unsigned short ND>
 int
-compute_coloring() {
+compute_coloring(const char * fname) {
   UNIT {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -54,7 +65,7 @@ compute_coloring() {
 
     // io::exodus_definition<2, double> def("square_32x32.g");
     // io::exodus_definition<2, double> def("mixed.exo");
-    io::exodus_definition<2, double> def("voro.g");
+    io::exodus_definition<ND, double> def(fname);
 
     const Color colors = size;
     auto [naive, c2v, v2c, c2c] = topo::unstructured_impl::make_dcrs(def, 1);
@@ -63,16 +74,50 @@ compute_coloring() {
     auto [primaries, p2m, m2p] =
       topo::unstructured_impl::migrate(naive, colors, raw, c2v, v2c, c2c);
 
-    topo::unstructured_impl::coloring_definition cd{colors, 0, 2, 1, 1, {{}}};
+    auto cd = create_coloring_def<ND>(colors);
     auto colorings = topo::unstructured_impl::color(
       def, cd, raw, primaries, c2v, v2c, c2c, m2p, p2m);
 
-    auto [c2e, e2v, v2e] =
-      topo::unstructured_impl::build_intermediary<decltype(def)>(1, c2v);
+
+    auto [c2f, f2v, v2f] =
+      topo::unstructured_impl::build_intermediary<3>(2, def, c2v, p2m);
+    std::vector<std::vector<std::size_t>> f2v_vec;
+    for (std::size_t row = 0; row < f2v.offsets.size() - 1; row++) {
+      std::vector<std::size_t> verts;
+      for (std::size_t i = f2v.offsets[row]; i < f2v.offsets[row+1]; i++) {
+        verts.push_back(f2v.indices[i]);
+      }
+      f2v_vec.push_back(std::move(verts));
+    }
+
+    auto [f2e, e2v, v2e] =
+      topo::unstructured_impl::build_intermediary<2>(1, def, f2v_vec, p2m);
+
+    // if (rank == 0) {
+    // for (std::size_t row = 0; row < c2f.offsets.size() - 1; row++) {
+    //   std::cout << row << " => ";
+    //   for (std::size_t col = c2f.offsets[row]; col < c2f.offsets[row+1]; col++) {
+    //     std::cout << c2f.indices[col] << " ";
+    //   }
+    //   std::cout << std::endl;
+    // }
+    // }
+
+    auto c2e = topo::unstructured_impl::intersect_connectivity(c2f, f2e);
+
+    if (rank == 0) {
+      for (std::size_t row = 0; row < c2e.offsets.size() - 1; row++) {
+        std::cout << row << " => ";
+        for (std::size_t col = c2e.offsets[row]; col < c2e.offsets[row+1]; col++) {
+          std::cout << c2e.indices[col] << " ";
+        }
+        std::cout << std::endl;
+      }
+    }
 
 #if 0
     { // debug
-      if (rank == 1) {
+      if (rank == 0) {
         std::size_t lid{0};
         for (auto const & c: c2v) {
           std::cout << "cell: " << p2m[lid++] << ": ";
@@ -115,13 +160,19 @@ compute_coloring() {
 
     auto full_raw = gather_raw({raw.begin(), raw.end()});
 
-    if(rank == 0)
-      io::write_coloring("coloring.exo", def, full_raw);
+    if(rank == 0) {
+      std::string prefix{fname};
+      std::string ofname = prefix.substr(0, prefix.find(".", 0)) + "-coloring.exo";
+      io::write_coloring(ofname.c_str(), def, full_raw);
+    }
   };
 }
 int
 coloring_driver() {
-  UNIT { execute<compute_coloring, mpi>(); };
+  // UNIT { execute<compute_coloring<2>, mpi>("mixed.exo"); };
+  // UNIT { execute<compute_coloring<2>, mpi>("square_32x32.g"); };
+  // UNIT { execute<compute_coloring<2>, mpi>("voro.g"); };
+  UNIT { execute<compute_coloring<3>, mpi>("box-hex.exo"); };
 }
 
 flecsi::unit::driver<coloring_driver> coloring;

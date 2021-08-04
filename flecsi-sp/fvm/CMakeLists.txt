@@ -34,6 +34,7 @@ add_unit(coloring
   INPUTS
     ${PROJECT_SOURCE_DIR}/data/meshes/2d/mixed/mixed.exo
     ${PROJECT_SOURCE_DIR}/data/meshes/2d/voro/voro.g
+	${PROJECT_SOURCE_DIR}/data/meshes/3d/box/box-hex.exo
     ${PROJECT_SOURCE_DIR}/data/meshes/2d/square/square_32x32.g
   THREADS 4)
 endif()

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <vector>
+#include <functional>
 
 namespace fsp {
 namespace io {
@@ -17,14 +18,15 @@ struct csr {
   std::vector<size> colind;
 };
 
-template<class size>
+
+template<class size, class block_t, auto is_fixed_block>
 struct block_cursor {
   struct location {
     int block;
     size offset;
   };
 
-  block_cursor(std::vector<std::pair<size, bool>> && entities_per_block,
+  block_cursor(std::vector<std::pair<size, block_t>> && entities_per_block,
     size chunk_size)
     : base(0), block_counts(std::move(entities_per_block)),
       chunk_size(chunk_size) {}
@@ -64,8 +66,8 @@ struct block_cursor {
   location find_entity(size eid) {
     size curr = 0;
     location ret{0, 0};
-    for(auto & blkinfo : block_counts) {
-      if(blkinfo.second) { // polyhedra
+    for(const auto & blkinfo : block_counts) {
+      if(not is_fixed_block(blkinfo.second)) { // polyhedra
         curr += blkinfo.first;
         if(eid < curr)
           return ret;
@@ -111,13 +113,19 @@ struct block_cursor {
     return curr_loc;
   }
 
+  block_t get_block_type(size id) const {
+    auto & binfo = block_counts.at(id);
+    return binfo.second;
+  }
+
 protected:
   size base;
-  std::vector<std::pair<size, bool>> block_counts;
+  std::vector<std::pair<size, block_t>> block_counts;
   size chunk_size;
   csr<size> curr;
   location curr_loc;
 };
+
 
 template<class size_t, class real, int num_dims>
 class vertex_cursor

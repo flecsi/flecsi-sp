@@ -20,6 +20,27 @@
 namespace fsp {
 namespace io {
 
+/* tetra */
+constexpr int tetra_sides = 4;
+constexpr int tetra_size = 6;
+static int tetra_table[tetra_sides][tetra_size] = {
+  /*      1              2               3               4            side   */
+  {1,2,4,5,9,8}, {2,3,4,6,10,9}, {1,4,3,8,10,7}, {1,3,2,7,6,5}   /* nodes  */
+};
+
+/* hex */
+constexpr int hex_sides = 6;
+constexpr int hex_size = 9;
+static int hex_table[hex_sides][hex_size] = {
+  /*         1                        2                                side   */
+  {1,2,6,5,9,14,17,13,26}, {2,3,7,6,10,15,18,14,25},              /* nodes  */
+  /*         3                        4                                side   */
+  {3,4,8,7,11,16,19,15,27}, {1,5,8,4,13,20,16,12,24},             /* nodes  */
+  /*         5                        6                                side   */
+  {1,4,3,2,12,11,10,9,22},  {5,6,7,8,17,18,19,20,23}              /* nodes  */
+};
+
+
 template<int D, class T>
 class exodus_base
 {
@@ -48,7 +69,11 @@ public:
     invalid
   };
 
-  using block_cursor = detail::block_cursor<size>;
+  static bool is_fixed_block(block_t blk) {
+    return not (blk == block_t::polygon or blk == block_t::polyhedron);
+  }
+
+  using block_cursor = detail::block_cursor<size, block_t, is_fixed_block>;
   using vertex_cursor = detail::vertex_cursor<size, real, D>;
 
   template<typename U>
@@ -81,17 +106,17 @@ public:
 
     // read block counts to initialize block_cursor (so it can find what block
     // contains an entity)
-    std::vector<std::pair<size, bool>> block_counts;
+    std::vector<std::pair<size, block_t>> block_counts;
     for(auto blkid : elem_blk_ids) {
       if(is_int64(exoid)) {
         block_stats_t<long long> stats;
         read_block_stats(exoid, blkid, EX_ELEM_BLOCK, stats);
-        block_counts.emplace_back(stats.num_elem_this_blk, ispoly(stats));
+        block_counts.emplace_back(stats.num_elem_this_blk, get_block_type(stats));
       }
       else {
         block_stats_t<int> stats;
         read_block_stats(exoid, blkid, EX_ELEM_BLOCK, stats);
-        block_counts.emplace_back(stats.num_elem_this_blk, ispoly(stats));
+        block_counts.emplace_back(stats.num_elem_this_blk, get_block_type(stats));
       }
     }
     blk_cursor =
@@ -158,10 +183,29 @@ public:
     }
   }
 
+
   template<class U>
-  static bool ispoly(block_stats_t<U> & stats) {
-    return (strcasecmp("nsided", stats.elem_type) == 0 or
-            strcasecmp("nfaced", stats.elem_type) == 0);
+  static block_t get_block_type(const block_stats_t<U> & stats) {
+    if (strcasecmp("nsided", stats.elem_type) == 0)
+      return block_t::polygon;
+    else if (strcasecmp("nfaced", stats.elem_type) == 0)
+      return block_t::polyhedron;
+    else if (strcasecmp("tri", stats.elem_type) == 0 ||
+             strcasecmp("tri3", stats.elem_type) == 0)
+      return block_t::tri;
+    else if (strcasecmp("quad", stats.elem_type) == 0 ||
+             strcasecmp("quad4", stats.elem_type) == 0 ||
+             strcasecmp("shell", stats.elem_type) == 0 ||
+             strcasecmp("shell4", stats.elem_type) == 0)
+      return block_t::quad;
+    else if (strcasecmp("tet", stats.elem_type) == 0 ||
+             strcasecmp("tetra", stats.elem_type) == 0 ||
+             strcasecmp("tet4", stats.elem_type) == 0)
+      return block_t::tet;
+    else if (strcasecmp("hex", stats.elem_type) == 0 ||
+             strcasecmp("hex8", stats.elem_type) == 0)
+      return block_t::hex;
+    else return block_t::unknown;
   }
 
   static void close(int exo_id) {
@@ -562,9 +606,10 @@ public:
   }
 
   template<class VID>
-  static void build_intermediary_from_vertices(flecsi::Dimension dim,
-    const std::vector<VID> & verts,
-    crs & inter) {
+  void build_intermediary_from_vertices(flecsi::Dimension dim,
+                                        std::size_t cell,
+                                        const std::vector<VID> & verts,
+                                        crs & inter) const {
     flog_assert(dim == 1, "Invalid dimension: " << dim);
     for(auto v0 = verts.begin(), v1 = std::next(v0); v0 != verts.end();
         ++v0, ++v1) {
@@ -583,10 +628,12 @@ public:
   using real = typename base::real;
   using size = typename base::size;
   using index = typename base::index;
+  using crs = typename base::crs;
   using base::elem_blk_ids;
   using base::exo_params;
   using base::exoid;
   using base::num_dims;
+  using base::blk_cursor;
 
   exodus_definition(const std::string & filename) : base(filename) {}
 
@@ -608,6 +655,52 @@ public:
       this->stream(from_id, ret);
     }
     return ret;
+  }
+
+  template<class VID>
+  void build_intermediary_from_vertices(flecsi::Dimension dim,
+                                        std::size_t cell,
+                                        const std::vector<VID> & verts,
+                                        crs & inter) const {
+    if(dim == 1) {        // edges
+      for (
+        auto v0 = std::prev(verts.end()), v1 = verts.begin();
+        v1 != verts.end();
+        v0 = v1, ++v1
+        )
+        inter.add_row({*v0, *v1});
+    } else if(dim == 2) { // faces
+      // TODO: make more efficient (reduce amount of block lookups)
+      auto loc = blk_cursor->find_entity(cell);
+      auto btype = blk_cursor->get_block_type(loc.block);
+      int * side_indices = nullptr;
+      int num_sides = 0;
+      int num_side_points = 0;
+      int side_size = 0;
+      if (btype == base::block_t::hex) {
+        side_indices = &hex_table[0][0];
+        num_sides = hex_sides;
+        side_size = hex_size;
+        num_side_points = 4;
+      }
+      else if (btype == base::block_t::tet) {
+        side_indices = &tetra_table[0][0];
+        num_sides = tetra_sides;
+        side_size = tetra_size;
+        num_side_points = 3;
+      }
+      std::vector<index> temp_vs(num_side_points);
+
+      for (int i=0; i<num_sides; ++i) {
+        for (int j=0; j<num_side_points; ++j) {
+          auto id = side_indices[i*side_size + j] - 1;
+          temp_vs[j] = verts[id];
+        }
+        inter.add_row(temp_vs.begin(), temp_vs.end());
+      }
+    } else {
+      flog_fatal("Invalid dimension: " << dim);
+    }
   }
 };
 
