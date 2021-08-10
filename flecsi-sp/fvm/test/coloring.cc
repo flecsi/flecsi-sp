@@ -68,7 +68,7 @@ compute_coloring(const char * fname) {
     io::exodus_definition<ND, double> def(fname);
 
     const Color colors = size;
-    auto [naive, c2v, v2c, c2c] = topo::unstructured_impl::make_dcrs(def, 1);
+    auto [naive, c2v, v2c, c2c] = topo::unstructured_impl::make_dcrs(def, ND - 1);
     auto raw = util::parmetis::color(naive, colors);
 
     auto [primaries, p2m, m2p] =

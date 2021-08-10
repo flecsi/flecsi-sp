@@ -134,26 +134,50 @@ static int inter3d()
 {
   UNIT {
     io::exodus_definition<3, double> def("box-hex.exo");
-      const auto colors = processes();
-      auto [naive, c2v, v2c, c2c] = topo::unstructured_impl::make_dcrs(def, 1);
-      auto raw = util::parmetis::color(naive, colors);
+    const auto colors = processes();
+    auto [naive, c2v, v2c, c2c] = topo::unstructured_impl::make_dcrs(def, 2);
+    auto raw = util::parmetis::color(naive, colors);
 
-      auto [primaries, p2m, m2p] =
-        topo::unstructured_impl::migrate(naive, colors, raw, c2v, v2c, c2c);
+    auto [primaries, p2m, m2p] =
+      topo::unstructured_impl::migrate(naive, colors, raw, c2v, v2c, c2c);
 
-      topo::unstructured_impl::coloring_definition cd{colors, 0, 2, 1, 1, {{}}};
-      auto colorings = topo::unstructured_impl::color(
-        def, cd, raw, primaries, c2v, v2c, c2c, m2p, p2m);
+    topo::unstructured_impl::coloring_definition cd{colors, 0, 3, 1, 1, {{}}};
+    auto colorings = topo::unstructured_impl::color(
+      def, cd, raw, primaries, c2v, v2c, c2c, m2p, p2m);
 
-      auto [c2e, e2v, v2e] =
-        topo::unstructured_impl::build_intermediary<3>(1, def, c2v, p2m);
+    auto [c2f, f2v, v2f] =
+      topo::unstructured_impl::build_intermediary<3>(2, def, c2v, p2m);
+    std::vector<std::vector<std::size_t>> f2v_vec;
+    for (std::size_t row = 0; row < f2v.offsets.size() - 1; row++) {
+      std::vector<std::size_t> verts;
+      for (std::size_t i = f2v.offsets[row]; i < f2v.offsets[row+1]; i++) {
+        verts.push_back(f2v.indices[i]);
+      }
+      f2v_vec.push_back(std::move(verts));
+    }
 
+    auto [f2e, e2v, v2e] =
+      topo::unstructured_impl::build_intermediary<2>(1, def, f2v_vec, p2m);
+
+    auto c2e = topo::unstructured_impl::intersect_connectivity(c2f, f2e);
+
+    // check faces
+    EXPECT_EQ(check_cell(29, {
+          {29, {32, 35, 42, 45}},
+          {45, {32, 35, 65, 67}},
+          {55, {32, 42, 65, 70}},
+          {59, {35, 45, 67, 72}},
+          {60, {42, 45, 70, 72}},
+          {61, {65, 67, 70, 72}}
+        }, p2m, c2f, f2v, v2f),
+      0);
   };
 }
 
 int driver() {
   UNIT {
-    EXPECT_EQ((test<inter2d, mpi>()), 0);
+    // EXPECT_EQ((test<inter2d, mpi>()), 0);
+    EXPECT_EQ((test<inter3d, mpi>()), 0);
   };
 }
 
