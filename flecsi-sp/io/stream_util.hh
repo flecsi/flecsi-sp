@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <vector>
 #include <functional>
+#include <vector>
 
 namespace fsp {
 namespace io {
@@ -17,7 +17,6 @@ struct csr {
   std::vector<size> rowptr;
   std::vector<size> colind;
 };
-
 
 template<class size, class block_t, auto is_fixed_block>
 struct block_cursor {
@@ -125,7 +124,6 @@ protected:
   csr<size> curr;
   location curr_loc;
 };
-
 
 template<class size_t, class real, int num_dims>
 class vertex_cursor
