@@ -417,8 +417,8 @@ public:
 
     { // filter block
       blk_cursor.alloc(counts.size(), indices.size());
-      auto & rowptr = blk_cursor.data().rowptr;
-      auto & colind = blk_cursor.data().colind;
+      auto & rowptr = blk_cursor.data().offsets;
+      auto & colind = blk_cursor.data().indices;
 
       // create cells in mesh
       size base = 0;
