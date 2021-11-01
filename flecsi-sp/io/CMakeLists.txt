@@ -11,7 +11,6 @@ set(io_HEADERS
   PARENT_SCOPE)
 
 set(io_SOURCES
-  stream_util.cc
   debug_util.cc
   exodus_definition.cc
   PARENT_SCOPE)
@@ -31,4 +30,16 @@ add_unit(exodus
    ${PROJECT_SOURCE_DIR}/data/meshes/3d/box/box-hex.exo
    ${PROJECT_SOURCE_DIR}/data/meshes/3d/box/box-tet.exo
 )
+
+add_unit(exodus_intermediary
+  SOURCES
+    test/exodus_inter.cc
+  LIBRARIES
+    FleCSI-SP
+  INPUTS
+    ${PROJECT_SOURCE_DIR}/data/meshes/2d/voro/voro.g
+    ${PROJECT_SOURCE_DIR}/data/meshes/2d/mixed/mixed.exo
+  THREADS 4
+)
+
 endif()

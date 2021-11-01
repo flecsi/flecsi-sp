@@ -5,26 +5,25 @@
 
 #pragma once
 
+#include <functional>
 #include <vector>
+
+#include "flecsi/topo/unstructured/types.hh"
 
 namespace fsp {
 namespace io {
 namespace detail {
 
-template<class size>
-struct csr {
-  std::vector<size> rowptr;
-  std::vector<size> colind;
-};
+using crs = flecsi::topo::unstructured_impl::crs;
 
-template<class size>
+template<class size, class block_t, auto is_fixed_block>
 struct block_cursor {
   struct location {
     int block;
     size offset;
   };
 
-  block_cursor(std::vector<std::pair<size, bool>> && entities_per_block,
+  block_cursor(std::vector<std::pair<size, block_t>> && entities_per_block,
     size chunk_size)
     : base(0), block_counts(std::move(entities_per_block)),
       chunk_size(chunk_size) {}
@@ -40,7 +39,7 @@ struct block_cursor {
    * Get id of the next entity to read.
    */
   size next() const {
-    return (curr.rowptr.size() == 0) ? 0 : base + curr.rowptr.size() - 1;
+    return (curr.offsets.size() == 0) ? 0 : base + curr.offsets.size() - 1;
   }
 
   void move(int block, size offset) {
@@ -51,21 +50,21 @@ struct block_cursor {
     }
     base += offset;
 
-    curr.rowptr.clear();
-    curr.colind.clear();
+    curr.offsets.clear();
+    curr.indices.clear();
   }
 
   void alloc(size nrows, size nnz) {
-    curr.rowptr.reserve(nrows + 1);
-    curr.colind.reserve(nnz);
-    curr.rowptr.emplace_back(0);
+    curr.offsets.reserve(nrows + 1);
+    curr.indices.reserve(nnz);
+    curr.offsets.emplace_back(0);
   }
 
   location find_entity(size eid) {
     size curr = 0;
     location ret{0, 0};
-    for(auto & blkinfo : block_counts) {
-      if(blkinfo.second) { // polyhedra
+    for(const auto & blkinfo : block_counts) {
+      if(not is_fixed_block(blkinfo.second)) { // polyhedra
         curr += blkinfo.first;
         if(eid < curr)
           return ret;
@@ -95,15 +94,15 @@ struct block_cursor {
 
   void get(size id, std::vector<size> & ret) {
     if(contains(id)) {
-      size beg = curr.rowptr[id - base];
-      size end = curr.rowptr[id - base + 1];
+      size beg = curr.offsets[id - base];
+      size end = curr.offsets[id - base + 1];
       ret.resize(end - beg);
       std::copy(
-        curr.colind.begin() + beg, curr.colind.begin() + end, ret.begin());
+        curr.indices.begin() + beg, curr.indices.begin() + end, ret.begin());
     }
   }
 
-  csr<size> & data() {
+  crs & data() {
     return curr;
   }
 
@@ -111,11 +110,20 @@ struct block_cursor {
     return curr_loc;
   }
 
+  block_t get_block_type(size id) const {
+    auto & binfo = block_counts.at(id);
+    return binfo.second;
+  }
+
+  size get_base() const {
+    return base;
+  }
+
 protected:
   size base;
-  std::vector<std::pair<size, bool>> block_counts;
+  std::vector<std::pair<size, block_t>> block_counts;
   size chunk_size;
-  csr<size> curr;
+  crs curr;
   location curr_loc;
 };
 

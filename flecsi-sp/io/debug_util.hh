@@ -31,6 +31,12 @@ write_block(int exoid,
     case(Def::block_t::tri):
       type_str = "tri3";
       break;
+    case(Def::block_t::hex):
+      type_str = "hex8";
+      break;
+    case(Def::block_t::tet):
+      type_str = "tet4";
+      break;
     default:
       type_str = "nsided";
   };
